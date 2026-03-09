@@ -7,16 +7,19 @@ import {
   Receipt,
   Settings,
   Wallet,
+  Building2,
   Moon,
   Sun,
+  LogOut,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -25,9 +28,10 @@ export default function Sidebar() {
   }, []);
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Дашборд", href: "/dashboard" },
+    { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
     { icon: TrendingUp, label: "Аналитика", href: "/analytics" },
     { icon: Receipt, label: "Транзакции", href: "/transactions" },
+    { icon: Building2, label: "Счета", href: "/accounts" },
     { icon: Settings, label: "Настройки", href: "/settings" },
   ];
 
@@ -47,7 +51,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 custom-scrollbar overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-1 custom-scrollbar overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
@@ -58,10 +62,8 @@ export default function Sidebar() {
                 variant={isActive ? "flat" : "light"}
                 color={isActive ? "primary" : "default"}
                 startContent={<Icon className="w-5 h-5" />}
-                className={`justify-start text-base transition-all ${
-                  isActive
-                    ? "font-semibold"
-                    : "font-normal hover:bg-content2"
+                className={`justify-start text-sm transition-all ${
+                  isActive ? "font-semibold" : "font-normal hover:bg-content2"
                 }`}
               >
                 {item.label}
@@ -71,37 +73,44 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Theme Toggle & User Info */}
-      <div className="p-4 border-t border-divider space-y-3">
+      {/* Footer */}
+      <div className="p-4 border-t border-divider space-y-2">
         {/* Theme Switcher */}
         {mounted && (
           <Button
             fullWidth
-            variant="flat"
+            variant="light"
             color="default"
             startContent={
               theme === "dark" ? (
-                <Sun className="w-5 h-5" />
+                <Sun className="w-4 h-4" />
               ) : (
-                <Moon className="w-5 h-5" />
+                <Moon className="w-4 h-4" />
               )
             }
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="justify-start"
+            className="justify-start text-sm"
           >
             {theme === "dark" ? "Светлая тема" : "Тёмная тема"}
           </Button>
         )}
 
         {/* User Profile */}
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-content2 hover:bg-content3 transition-colors cursor-pointer">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
-            <span className="text-sm font-bold text-black">DU</span>
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-content2 hover:bg-content3 transition-colors">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-bold text-black">AF</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">DevOps User</p>
+            <p className="text-sm font-medium truncate">AutoFlow User</p>
             <p className="text-xs text-default-500 truncate">user@autoflow.dev</p>
           </div>
+          <button
+            onClick={() => router.push("/login")}
+            aria-label="Выйти"
+            className="text-default-400 hover:text-[#FF3366] transition-colors p-1"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </aside>

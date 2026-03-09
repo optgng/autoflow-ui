@@ -188,6 +188,13 @@
 }
 
 @layer components {
+  /* Reusable input style */
+  .input-field {
+    @apply w-full h-10 px-3 rounded-xl bg-content2 border border-divider text-foreground text-sm focus:outline-none focus:border-[#00E5FF] focus:ring-1 transition-all;
+    --tw-ring-color: rgba(0, 229, 255, 0.3);
+  }
+
+
   /* Page Transitions */
   .page-transition {
     animation: fadeIn 0.5s ease-out;

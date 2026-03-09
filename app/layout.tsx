@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import Sidebar from "@/components/layout/Sidebar";
+import AppShell from "@/components/layout/AppShell";
 
 const inter = Inter({
   subsets: ["latin", "cyrillic"],
@@ -17,8 +17,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AutoFlow Finance Dashboard",
-  description: "Личный финансовый дашборд с автоматизацией",
+  title: "AutoFlow Finance — Персональный финансовый дашборд",
+  description:
+    "Аналитика доходов и расходов, управление счетами и бюджетом в одном месте.",
 };
 
 export default function RootLayout({
@@ -27,17 +28,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html
+      lang="ru"
+      suppressHydrationWarning
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
+    >
       <body className="min-h-screen bg-background font-sans antialiased">
         <Providers>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 ml-64 min-h-screen bg-gradient-to-br from-background via-black to-background">
-              <div className="container-custom section-spacing page-transition">
-                {children}
-              </div>
-            </main>
-          </div>
+          <AppShell>{children}</AppShell>
         </Providers>
       </body>
     </html>
