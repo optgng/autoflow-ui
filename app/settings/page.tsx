@@ -1,3 +1,4 @@
+'use client';
 import { Card, CardBody } from "@heroui/react";
 
 export default function SettingsPage() {
