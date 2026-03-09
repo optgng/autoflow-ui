@@ -36,8 +36,8 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="p-6 border-b border-divider">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
-            <Wallet className="w-6 h-6 text-background" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00E5FF] to-[#0066FF] flex items-center justify-center shadow-glow">
+            <Wallet className="w-6 h-6 text-black" />
           </div>
           <div>
             <h1 className="text-xl font-bold gradient-text-primary">AutoFlow</h1>
@@ -60,7 +60,7 @@ export default function Sidebar() {
                 startContent={<Icon className="w-5 h-5" />}
                 className={`justify-start text-base transition-all ${
                   isActive
-                    ? "font-semibold shadow-glow-sm"
+                    ? "font-semibold"
                     : "font-normal hover:bg-content2"
                 }`}
               >
@@ -95,8 +95,8 @@ export default function Sidebar() {
 
         {/* User Profile */}
         <div className="flex items-center gap-3 p-3 rounded-lg bg-content2 hover:bg-content3 transition-colors cursor-pointer">
-          <div className="w-10 h-10 rounded-full bg-gradient-success flex items-center justify-center">
-            <span className="text-sm font-bold text-background">DU</span>
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
+            <span className="text-sm font-bold text-black">DU</span>
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">DevOps User</p>
