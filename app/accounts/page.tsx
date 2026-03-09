@@ -178,20 +178,7 @@ export default function AccountsPage() {
                 >
                   {acc.isActive ? "Активный" : "Архивный"}
                 </span>
-                <button
-                  onClick={() => toggleActive(acc.id)}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${
-                    acc.isActive ? "bg-[#00FFA3]" : "bg-content3"
-                  }`}
-                  role="switch"
-                  aria-checked={acc.isActive}
-                >
-                  <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                      acc.isActive ? "translate-x-5" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
+                <Toggle checked={acc.isActive} onChange={() => toggleActive(acc.id)} />
               </div>
             </div>
           </div>
@@ -265,20 +252,7 @@ export default function AccountsPage() {
               </Field>
               <div className="flex items-center justify-between py-3 border-t border-divider">
                 <span className="text-sm font-medium">Активный счет</span>
-                <button
-                  onClick={() => setForm({ ...form, isActive: !form.isActive })}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${
-                    form.isActive ? "bg-[#00FFA3]" : "bg-content3"
-                  }`}
-                  role="switch"
-                  aria-checked={form.isActive}
-                >
-                  <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                      form.isActive ? "translate-x-5" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
+                <Toggle checked={form.isActive} onChange={() => setForm({ ...form, isActive: !form.isActive })} />
               </div>
             </div>
             <div className="flex gap-3 mt-6">
@@ -344,5 +318,24 @@ function Field({
       <label className="text-sm font-medium text-default-600">{label}</label>
       {children}
     </div>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      onClick={onChange}
+      role="switch"
+      aria-checked={checked}
+      className={`relative inline-flex w-10 h-6 rounded-full transition-colors flex-shrink-0 focus:outline-none ${
+        checked ? "bg-[#00FFA3]" : "bg-content3"
+      }`}
+    >
+      <span
+        className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+          checked ? "translate-x-5" : "translate-x-1"
+        }`}
+      />
+    </button>
   );
 }

@@ -267,7 +267,7 @@ function SelectFilter({
         <ChevronDown className="w-3.5 h-3.5 text-default-400" />
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-48 glass-card rounded-xl py-1 z-50 shadow-lg">
+        <div className="absolute right-0 mt-2 w-48 rounded-xl py-1 z-50 shadow-xl border border-divider" style={{ background: "var(--heroui-content2)" }}>
           {options.map((o) => (
             <button
               key={o}
