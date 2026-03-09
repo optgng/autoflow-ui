@@ -1,5 +1,5 @@
-import DashboardView from "./components/dashboard-view";
+import { redirect } from "next/navigation";
 
-export default function HomePage() {
-  return <DashboardView />;
+export default function Home() {
+  redirect("/dashboard");
 }
