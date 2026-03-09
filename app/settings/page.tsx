@@ -390,15 +390,15 @@ function NotifRow({
       </div>
       <button
         onClick={() => onChange(!value)}
-        className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
-          value ? "bg-[#00FFA3]" : "bg-content3"
-        }`}
         role="switch"
         aria-checked={value}
+        className={`relative inline-flex w-10 h-6 rounded-full transition-colors flex-shrink-0 focus:outline-none ${
+          value ? "bg-[#00FFA3]" : "bg-content3"
+        }`}
       >
         <span
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-            value ? "translate-x-5" : "translate-x-0.5"
+          className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+            value ? "translate-x-5" : "translate-x-1"
           }`}
         />
       </button>
