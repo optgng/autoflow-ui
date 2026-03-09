@@ -1,12 +1,9 @@
-import { Wallet, TrendingUp, TrendingDown } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
 import BudgetProgress from "@/components/dashboard/BudgetProgress";
 import TransactionList from "@/components/dashboard/TransactionList";
 import { mockStats, mockBudgets, mockTransactions } from "@/lib/mock-data";
 
 export default function DashboardPage() {
-  const icons = [Wallet, TrendingUp, TrendingDown];
-
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -24,7 +21,7 @@ export default function DashboardPage() {
             value={stat.value}
             change={stat.change}
             trend={stat.trend}
-            icon={icons[idx]}
+            icon={stat.icon}  // ← Теперь это строка
             color={stat.color}
           />
         ))}

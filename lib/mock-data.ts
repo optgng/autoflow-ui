@@ -5,6 +5,7 @@ export const mockStats = [
     change: 12.5,
     trend: "up" as const,
     color: "primary" as const,
+    icon: "wallet" as const,  // ← Строка вместо компонента
   },
   {
     label: "Доход за месяц",
@@ -12,6 +13,7 @@ export const mockStats = [
     change: 8.2,
     trend: "up" as const,
     color: "success" as const,
+    icon: "trending-up" as const,  // ← Строка
   },
   {
     label: "Расходы за месяц",
@@ -19,6 +21,7 @@ export const mockStats = [
     change: -3.1,
     trend: "down" as const,
     color: "danger" as const,
+    icon: "trending-down" as const,  // ← Строка
   },
 ];
 

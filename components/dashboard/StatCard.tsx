@@ -1,15 +1,22 @@
 "use client";
 
 import { Card, CardBody } from "@heroui/react";
-import { LucideIcon } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+
+// Маппинг строковых идентификаторов на компоненты иконок
+const iconMap: Record<string, LucideIcon> = {
+  wallet: Wallet,
+  "trending-up": TrendingUp,
+  "trending-down": TrendingDown,
+};
 
 interface StatCardProps {
   label: string;
   value: string;
   change: number;
   trend: "up" | "down";
-  icon: LucideIcon;
+  icon: "wallet" | "trending-up" | "trending-down";  // ← Строка, а не компонент
   color: "primary" | "success" | "danger";
 }
 
@@ -18,7 +25,7 @@ export default function StatCard({
   value,
   change,
   trend,
-  icon: Icon,
+  icon,
   color,
 }: StatCardProps) {
   const [isVisible, setIsVisible] = useState(false);
@@ -26,6 +33,9 @@ export default function StatCard({
   useEffect(() => {
     setIsVisible(true);
   }, []);
+
+  // Получаем компонент иконки из маппинга
+  const Icon = iconMap[icon];
 
   const colorClasses = {
     primary: "text-[#00E5FF] bg-[#00E5FF]/10",
