@@ -28,9 +28,9 @@ export default function StatCard({
   }, []);
 
   const colorClasses = {
-    primary: "text-primary bg-primary/10",
-    success: "text-success bg-success/10",
-    danger: "text-danger bg-danger/10",
+    primary: "text-[#00E5FF] bg-[#00E5FF]/10",
+    success: "text-[#00FFA3] bg-[#00FFA3]/10",
+    danger: "text-[#FF3366] bg-[#FF3366]/10",
   };
 
   const glowClasses = {
@@ -52,11 +52,11 @@ export default function StatCard({
             <h3 className="text-3xl font-bold mb-2">{value}</h3>
             <div className="flex items-center gap-1">
               {trend === "up" ? (
-                <span className="text-success text-sm font-medium">
+                <span className="text-[#00FFA3] text-sm font-medium">
                   ↗ +{Math.abs(change)}%
                 </span>
               ) : (
-                <span className="text-danger text-sm font-medium">
+                <span className="text-[#FF3366] text-sm font-medium">
                   ↘ {change}%
                 </span>
               )}

@@ -63,8 +63,8 @@ export default function TransactionList({
                   <span
                     className={`font-semibold ${
                       tx.amount > 0
-                        ? "text-success"
-                        : "text-danger"
+                        ? "text-[#00FFA3]"
+                        : "text-[#FF3366]"
                     }`}
                   >
                     {tx.amount > 0 ? "+" : ""}
