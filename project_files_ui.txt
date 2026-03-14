@@ -1,0 +1,3236 @@
+================================================================================
+File path: app/providers.tsx
+================================================================================
+"use client";
+
+import { HeroUIProvider } from "@heroui/react";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { useRouter } from "next/navigation";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+
+  return (
+    <HeroUIProvider navigate={router.push}>
+      <NextThemesProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        {children}
+      </NextThemesProvider>
+    </HeroUIProvider>
+  );
+}
+
+
+
+================================================================================
+File path: app/globals.css
+================================================================================
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-inter: "Inter", system-ui, sans-serif;
+    --font-jetbrains: "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  /* Glass Morphism */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-card-light {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  /* Gradient Text */
+  .gradient-text-primary {
+    background: linear-gradient(135deg, #00e5ff 0%, #0066ff 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .gradient-text-success {
+    background: linear-gradient(135deg, #00ffa3 0%, #00c853 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .gradient-text-danger {
+    background: linear-gradient(135deg, #ff3366 0%, #f50057 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Glow Effects */
+  .glow-primary {
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.4), 0 0 40px rgba(0, 229, 255, 0.2);
+  }
+
+  .glow-success {
+    box-shadow: 0 0 20px rgba(0, 255, 163, 0.4);
+  }
+
+  .glow-danger {
+    box-shadow: 0 0 20px rgba(255, 51, 102, 0.4);
+  }
+
+  /* Hover Lift Effect */
+  .hover-lift {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-4px);
+  }
+
+  /* Border Gradient Animation */
+  .border-gradient {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .border-gradient::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(135deg, #00e5ff, #0066ff);
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .border-gradient:hover::before {
+    opacity: 1;
+  }
+
+  /* Scrollbar Styling */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 9999px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 9999px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  /* Shimmer Loading Effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.05) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  /* Number Counter Animation */
+  .animate-number {
+    animation: counter 1.5s ease-out;
+  }
+
+  /* Card Hover Glow */
+  .card-hover-glow {
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .card-hover-glow::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    background: linear-gradient(135deg, #00e5ff, #0066ff);
+    border-radius: inherit;
+    opacity: 0;
+    z-index: -1;
+    transition: opacity 0.3s ease;
+    filter: blur(20px);
+  }
+
+  .card-hover-glow:hover::after {
+    opacity: 0.6;
+  }
+
+  /* Gradient Border */
+  .gradient-border {
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    margin: -2px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, #00e5ff, #0066ff);
+  }
+}
+
+@layer components {
+  /* Reusable input style */
+  .input-field {
+    @apply w-full h-10 px-3 rounded-xl bg-content2 border border-divider text-foreground text-sm focus:outline-none focus:border-[#00E5FF] focus:ring-1 transition-all;
+    --tw-ring-color: rgba(0, 229, 255, 0.3);
+  }
+
+
+  /* Page Transitions */
+  .page-transition {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Section Spacing */
+  .section-spacing {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+
+  @media (min-width: 768px) {
+    .section-spacing {
+      padding-top: 3rem;
+      padding-bottom: 3rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .section-spacing {
+      padding-top: 4rem;
+      padding-bottom: 4rem;
+    }
+  }
+
+  /* Container */
+  .container-custom {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 80rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-custom {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-custom {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+}
+
+
+
+================================================================================
+File path: app/login/page.tsx
+================================================================================
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Wallet, AlertCircle } from "lucide-react";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    await new Promise((r) => setTimeout(r, 1200));
+
+    if (email === "user@autoflow.dev" && password === "password") {
+      router.push("/dashboard");
+    } else {
+      setError("Неверный email или пароль. Попробуйте user@autoflow.dev / password");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      {/* Background glow */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 40% at 50% 50%, rgba(0,229,255,0.06) 0%, transparent 70%)",
+        }}
+      />
+
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00E5FF] to-[#0066FF] flex items-center justify-center shadow-glow mb-4">
+            <Wallet className="w-8 h-8 text-black" />
+          </div>
+          <h1 className="text-3xl font-bold gradient-text-primary">AutoFlow Finance</h1>
+          <p className="text-default-500 mt-1 text-sm">Персональная финансовая аналитика</p>
+        </div>
+
+        {/* Card */}
+        <div className="glass-card rounded-2xl p-8">
+          <h2 className="text-xl font-bold mb-6 text-foreground">Войти в аккаунт</h2>
+
+          {/* Error alert */}
+          {error && (
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/30 mb-6">
+              <AlertCircle className="w-5 h-5 text-[#FF3366] flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-[#FF3366] leading-relaxed">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email field */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-default-600" htmlFor="email">
+                Email или имя пользователя
+              </label>
+              <input
+                id="email"
+                type="text"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="user@autoflow.dev"
+                required
+                className="w-full h-12 px-4 rounded-xl bg-content2 border border-divider text-foreground placeholder:text-default-400 focus:outline-none focus:border-[#00E5FF] focus:ring-1 focus:ring-[#00E5FF]/40 transition-all text-sm"
+              />
+            </div>
+
+            {/* Password field */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-default-600" htmlFor="password">
+                Пароль
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full h-12 px-4 pr-12 rounded-xl bg-content2 border border-divider text-foreground placeholder:text-default-400 focus:outline-none focus:border-[#00E5FF] focus:ring-1 focus:ring-[#00E5FF]/40 transition-all text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-default-400 hover:text-default-600 transition-colors p-1"
+                  aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12 rounded-xl font-semibold text-sm transition-all bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-glow mt-2"
+            >
+              {loading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                  Вход...
+                </>
+              ) : (
+                "Войти"
+              )}
+            </button>
+          </form>
+
+          {/* Forgot password */}
+          <div className="mt-5 text-center">
+            <button className="text-sm text-[#00E5FF] hover:underline transition-all">
+              Забыли пароль?
+            </button>
+          </div>
+        </div>
+
+        <p className="text-center text-xs text-default-400 mt-6">
+          Демо: user@autoflow.dev / password
+        </p>
+      </div>
+    </div>
+  );
+}
+
+
+
+================================================================================
+File path: app/layout.tsx
+================================================================================
+import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
+import "./globals.css";
+import { Providers } from "./providers";
+import AppShell from "@/components/layout/AppShell";
+
+const inter = Inter({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-jetbrains",
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: "AutoFlow Finance — Персональный финансовый дашборд",
+  description:
+    "Аналитика доходов и расходов, управление счетами и бюджетом в одном месте.",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html
+      lang="ru"
+      suppressHydrationWarning
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
+    >
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
+      </body>
+    </html>
+  );
+}
+
+
+
+================================================================================
+File path: app/dashboard/page.tsx
+================================================================================
+"use client";
+
+import { useState } from "react";
+import {
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  PiggyBank,
+  ChevronDown,
+  ArrowUpRight,
+} from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  mockChartData,
+  mockCategoryExpenses,
+  mockTransactions,
+  type Transaction,
+} from "@/lib/mock-data";
+import TransactionDetailModal from "@/components/dashboard/TransactionDetailModal";
+import Link from "next/link";
+
+const PERIODS = ["Последние 7 дней", "Текущий месяц", "Квартал"] as const;
+
+export default function DashboardPage() {
+  const [period, setPeriod] = useState<(typeof PERIODS)[number]>("Текущий месяц");
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+
+  const totalIncome = 180000;
+  const totalExpense = 87550;
+  const totalBalance = 252450;
+  const saved = totalIncome - totalExpense;
+  const savedPct = Math.round((saved / totalIncome) * 100);
+
+  const recentTx = mockTransactions.slice(0, 5);
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <nav className="text-xs text-default-400 mb-1">
+            <span>Dashboard</span>
+          </nav>
+          <h1 className="text-3xl font-bold text-foreground text-balance">
+            Добро пожаловать, AutoFlow User
+          </h1>
+          <p className="text-default-500 text-sm mt-1">Обзор ваших финансов</p>
+        </div>
+        {/* Period selector */}
+        <div className="relative">
+          <button
+            onClick={() => setPeriodOpen(!periodOpen)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors"
+          >
+            {period}
+            <ChevronDown className="w-4 h-4 text-default-400" />
+          </button>
+          {periodOpen && (
+            <div className="absolute right-0 mt-2 w-52 glass-card rounded-xl py-1 z-50 shadow-lg">
+              {PERIODS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => {
+                    setPeriod(p);
+                    setPeriodOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${
+                    p === period ? "text-[#00E5FF] font-medium" : "text-foreground"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        {/* Balance */}
+        <MetricCard
+          label="Общий баланс"
+          value={`${totalBalance.toLocaleString("ru-RU")} ₽`}
+          sub="на всех счетах"
+          icon={<Wallet className="w-6 h-6" />}
+          iconBg="bg-[#00E5FF]/10 text-[#00E5FF]"
+        />
+        {/* Income */}
+        <MetricCard
+          label="Доходы"
+          value={`${totalIncome.toLocaleString("ru-RU")} ₽`}
+          badge="+12% к прошлому месяцу"
+          badgeColor="text-[#00FFA3]"
+          icon={<TrendingUp className="w-6 h-6" />}
+          iconBg="bg-[#00FFA3]/10 text-[#00FFA3]"
+        />
+        {/* Expense */}
+        <MetricCard
+          label="Расходы"
+          value={`${totalExpense.toLocaleString("ru-RU")} ₽`}
+          badge="-8% к прошлому месяцу"
+          badgeColor="text-[#FF3366]"
+          icon={<TrendingDown className="w-6 h-6" />}
+          iconBg="bg-[#FF3366]/10 text-[#FF3366]"
+        />
+        {/* Saved */}
+        <div className="glass-card rounded-2xl p-5 hover-lift">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <p className="text-xs text-default-500 font-medium uppercase tracking-wide">
+                Сэкономлено
+              </p>
+              <p className="text-2xl font-bold mt-1 text-foreground">
+                {saved.toLocaleString("ru-RU")} ₽
+              </p>
+              <p className="text-xs text-default-400 mt-0.5">{savedPct}% от дохода</p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-[#FFB800]/10 text-[#FFB800] flex items-center justify-center flex-shrink-0">
+              <PiggyBank className="w-6 h-6" />
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div className="h-2 bg-content3 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#FFB800] rounded-full transition-all"
+              style={{ width: `${savedPct}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        {/* Line chart */}
+        <div className="glass-card rounded-2xl p-6 lg:col-span-3">
+          <h2 className="text-base font-semibold mb-5 text-foreground">
+            Динамика доходов и расходов
+          </h2>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={mockChartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: "#9CA3AF", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: "#9CA3AF", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                width={36}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "#111113",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "12px",
+                  fontSize: 12,
+                }}
+                formatter={(value: number) => [`${value.toLocaleString("ru-RU")} ₽`]}
+                labelStyle={{ color: "#9CA3AF" }}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 12, paddingTop: "12px" }}
+                formatter={(v) => (v === "income" ? "Доходы" : "Расходы")}
+              />
+              <Line
+                type="monotone"
+                dataKey="income"
+                stroke="#00FFA3"
+                strokeWidth={2}
+                dot={{ r: 3, fill: "#00FFA3" }}
+                activeDot={{ r: 5 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="expense"
+                stroke="#FF3366"
+                strokeWidth={2}
+                dot={{ r: 3, fill: "#FF3366" }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Pie chart */}
+        <div className="glass-card rounded-2xl p-6 lg:col-span-2">
+          <h2 className="text-base font-semibold mb-5 text-foreground">
+            Расходы по категориям
+          </h2>
+          <ResponsiveContainer width="100%" height={160}>
+            <PieChart>
+              <Pie
+                data={mockCategoryExpenses}
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={75}
+                paddingAngle={3}
+                dataKey="value"
+              >
+                {mockCategoryExpenses.map((entry, idx) => (
+                  <Cell key={idx} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  background: "#111113",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "12px",
+                  fontSize: 12,
+                }}
+                formatter={(value: number) => [`${value.toLocaleString("ru-RU")} ₽`]}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+          {/* Legend */}
+          <div className="space-y-2 mt-3">
+            {mockCategoryExpenses.map((c, i) => {
+              const total = mockCategoryExpenses.reduce((s, x) => s + x.value, 0);
+              const pct = Math.round((c.value / total) * 100);
+              return (
+                <div key={i} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ background: c.color }}
+                    />
+                    <span className="text-default-500">{c.name}</span>
+                  </div>
+                  <span className="font-medium text-foreground">{pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent transactions */}
+      <div className="glass-card rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-base font-semibold text-foreground">Последние операции</h2>
+          <Link
+            href="/transactions"
+            className="flex items-center gap-1 text-xs text-[#00E5FF] hover:underline font-medium"
+          >
+            Все транзакции
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-divider">
+                <th className="text-left text-xs text-default-400 font-medium pb-3 pr-4">
+                  Дата и время
+                </th>
+                <th className="text-left text-xs text-default-400 font-medium pb-3 pr-4">
+                  Категория
+                </th>
+                <th className="text-left text-xs text-default-400 font-medium pb-3 pr-4">
+                  Место покупки
+                </th>
+                <th className="text-right text-xs text-default-400 font-medium pb-3">
+                  Сумма
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentTx.map((tx) => (
+                <tr
+                  key={tx.id}
+                  onClick={() => setSelectedTx(tx)}
+                  className="border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer"
+                >
+                  <td className="py-3.5 pr-4 text-default-400 whitespace-nowrap">
+                    {tx.date} {tx.time}
+                  </td>
+                  <td className="py-3.5 pr-4">
+                    <span className="px-2.5 py-0.5 rounded-lg bg-content2 text-xs font-medium text-default-600">
+                      {tx.category}
+                    </span>
+                  </td>
+                  <td className="py-3.5 pr-4 font-medium text-foreground">{tx.merchant}</td>
+                  <td className="py-3.5 text-right font-semibold tabular-nums">
+                    <span
+                      className={tx.amount > 0 ? "text-[#00FFA3]" : "text-[#FF3366]"}
+                    >
+                      {tx.amount > 0 ? "+" : ""}
+                      {tx.amount.toLocaleString("ru-RU")} ₽
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal */}
+      {selectedTx && (
+        <TransactionDetailModal tx={selectedTx} onClose={() => setSelectedTx(null)} />
+      )}
+    </div>
+  );
+}
+
+// ─── MetricCard sub-component ────────────────────────────────────────────────
+
+function MetricCard({
+  label,
+  value,
+  sub,
+  badge,
+  badgeColor,
+  icon,
+  iconBg,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  badge?: string;
+  badgeColor?: string;
+  icon: React.ReactNode;
+  iconBg: string;
+}) {
+  return (
+    <div className="glass-card rounded-2xl p-5 hover-lift">
+      <div className="flex items-start justify-between mb-3">
+        <p className="text-xs text-default-500 font-medium uppercase tracking-wide">{label}</p>
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+          {icon}
+        </div>
+      </div>
+      <p className="text-2xl font-bold text-foreground">{value}</p>
+      {sub && <p className="text-xs text-default-400 mt-1">{sub}</p>}
+      {badge && (
+        <p className={`text-xs mt-1 font-medium ${badgeColor}`}>{badge}</p>
+      )}
+    </div>
+  );
+}
+
+
+
+================================================================================
+File path: app/transactions/page.tsx
+================================================================================
+"use client";
+
+import { useState, useMemo } from "react";
+import {
+  Search,
+  X,
+  Upload,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  FileSearch,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { mockTransactions, type Transaction } from "@/lib/mock-data";
+import TransactionDetailModal from "@/components/dashboard/TransactionDetailModal";
+
+const CATEGORIES = [
+  "Все",
+  "Супермаркеты",
+  "Такси",
+  "Кафе",
+  "ЖКХ",
+  "Развлечения",
+  "Покупки",
+  "Зарплата",
+  "Возвраты",
+  "Транспорт",
+  "Подписки",
+];
+
+const PAGE_SIZES = [10, 25, 50] as const;
+
+type SortKey = keyof Pick<Transaction, "date" | "amount" | "merchant" | "category">;
+type SortDir = "asc" | "desc";
+
+export default function TransactionsPage() {
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
+  const [categoryFilter, setCategoryFilter] = useState("Все");
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [modalTx, setModalTx] = useState<Transaction | null>(null);
+
+  // Filter
+  const filtered = useMemo(() => {
+    return mockTransactions.filter((tx) => {
+      const matchSearch =
+        !search ||
+        tx.merchant.toLowerCase().includes(search.toLowerCase()) ||
+        tx.category.toLowerCase().includes(search.toLowerCase());
+      const matchType =
+        typeFilter === "all" ||
+        (typeFilter === "income" && tx.type === "income") ||
+        (typeFilter === "expense" && tx.type === "expense");
+      const matchCategory =
+        categoryFilter === "Все" || tx.category === categoryFilter;
+      return matchSearch && matchType && matchCategory;
+    });
+  }, [search, typeFilter, categoryFilter]);
+
+  // Sort
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let av: string | number = a[sortKey];
+      let bv: string | number = b[sortKey];
+      if (sortKey === "amount") {
+        av = a.amount;
+        bv = b.amount;
+      } else if (sortKey === "date") {
+        // parse DD.MM.YYYY
+        const parseDate = (d: string) => {
+          const [day, month, year] = d.split(".");
+          return new Date(`${year}-${month}-${day}`).getTime();
+        };
+        av = parseDate(a.date);
+        bv = parseDate(b.date);
+      }
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filtered, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const paginated = sorted.slice((page - 1) * pageSize, page * pageSize);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+    setPage(1);
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === paginated.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(paginated.map((t) => t.id)));
+    }
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setTypeFilter("all");
+    setCategoryFilter("Все");
+    setPage(1);
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ChevronsUpDown className="w-3.5 h-3.5 text-default-400" />;
+    return sortDir === "asc" ? (
+      <ChevronUp className="w-3.5 h-3.5 text-[#00E5FF]" />
+    ) : (
+      <ChevronDown className="w-3.5 h-3.5 text-[#00E5FF]" />
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <nav className="text-xs text-default-400 mb-1">
+            <span>Dashboard</span>
+            <span className="mx-1.5">/</span>
+            <span className="text-foreground">Транзакции</span>
+          </nav>
+          <h1 className="text-3xl font-bold text-foreground">Транзакции</h1>
+        </div>
+        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 text-[#00E5FF] text-sm font-medium hover:bg-[#00E5FF]/20 transition-colors">
+          <Upload className="w-4 h-4" />
+          Импортировать выписку
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="glass-card rounded-2xl p-5 space-y-4">
+        <div className="flex flex-wrap gap-3">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-default-400" />
+            <input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Поиск по месту и категории..."
+              className="w-full h-10 pl-9 pr-4 rounded-xl bg-content2 border border-divider text-sm placeholder:text-default-400 focus:outline-none focus:border-[#00E5FF] transition-all"
+            />
+          </div>
+
+          {/* Type filter */}
+          <div className="flex rounded-xl overflow-hidden border border-divider h-10">
+            {(["all", "income", "expense"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => {
+                  setTypeFilter(t);
+                  setPage(1);
+                }}
+                className={`px-4 text-sm font-medium transition-colors ${
+                  typeFilter === t
+                    ? "bg-content3 text-foreground"
+                    : "bg-content2 text-default-400 hover:bg-content3"
+                }`}
+              >
+                {t === "all" ? "Все" : t === "income" ? "Доходы" : "Расходы"}
+              </button>
+            ))}
+          </div>
+
+          {/* Category select */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => {
+              setCategoryFilter(e.target.value);
+              setPage(1);
+            }}
+            className="h-10 px-3 rounded-xl bg-content2 border border-divider text-sm text-foreground focus:outline-none focus:border-[#00E5FF] transition-all"
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+
+          {/* Reset */}
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-1.5 px-3.5 h-10 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-foreground hover:bg-content3 transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+            Сбросить
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="glass-card rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-divider bg-content2/50">
+                <th className="pl-5 pr-3 py-4 w-10">
+                  <input
+                    type="checkbox"
+                    checked={
+                      paginated.length > 0 && selected.size === paginated.length
+                    }
+                    onChange={toggleSelectAll}
+                    className="rounded border-divider accent-[#00E5FF] cursor-pointer"
+                  />
+                </th>
+                <th
+                  className="px-3 py-4 text-left cursor-pointer select-none"
+                  onClick={() => toggleSort("date")}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-default-400">
+                    Дата и время
+                    <SortIcon col="date" />
+                  </div>
+                </th>
+                <th
+                  className="px-3 py-4 text-left cursor-pointer select-none"
+                  onClick={() => toggleSort("category")}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-default-400">
+                    Категория
+                    <SortIcon col="category" />
+                  </div>
+                </th>
+                <th
+                  className="px-3 py-4 text-left cursor-pointer select-none"
+                  onClick={() => toggleSort("merchant")}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-default-400">
+                    Место покупки
+                    <SortIcon col="merchant" />
+                  </div>
+                </th>
+                <th className="px-3 py-4 text-left text-xs font-medium text-default-400">
+                  Счет
+                </th>
+                <th
+                  className="px-3 py-4 text-right cursor-pointer select-none"
+                  onClick={() => toggleSort("amount")}
+                >
+                  <div className="flex items-center justify-end gap-1.5 text-xs font-medium text-default-400">
+                    Сумма
+                    <SortIcon col="amount" />
+                  </div>
+                </th>
+                <th className="px-3 py-4 text-right text-xs font-medium text-default-400">
+                  Баланс после
+                </th>
+                <th className="pr-5 py-4 w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={8}>
+                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                      <FileSearch className="w-12 h-12 text-default-300 mb-3" />
+                      <p className="text-default-500 font-medium">Ничего не найдено</p>
+                      <p className="text-sm text-default-400 mt-1">
+                        Попробуйте изменить фильтры
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginated.map((tx) => (
+                  <tr
+                    key={tx.id}
+                    onClick={() => setModalTx(tx)}
+                    className={`border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer ${
+                      selected.has(tx.id) ? "bg-[#00E5FF]/5" : ""
+                    }`}
+                  >
+                    <td
+                      className="pl-5 pr-3 py-3.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected.has(tx.id)}
+                        onChange={() => toggleSelect(tx.id)}
+                        className="rounded border-divider accent-[#00E5FF] cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-3 py-3.5 text-default-400 whitespace-nowrap text-xs">
+                      {tx.date} {tx.time}
+                    </td>
+                    <td className="px-3 py-3.5">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-content2 text-xs font-medium text-default-600">
+                        {tx.category}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3.5 font-medium text-foreground">
+                      {tx.merchant}
+                    </td>
+                    <td className="px-3 py-3.5 text-default-500 text-xs">
+                      {tx.account}
+                    </td>
+                    <td className="px-3 py-3.5 text-right font-semibold tabular-nums">
+                      <span
+                        className={
+                          tx.amount > 0 ? "text-[#00FFA3]" : "text-[#FF3366]"
+                        }
+                      >
+                        {tx.amount > 0 ? "+" : ""}
+                        {tx.amount.toLocaleString("ru-RU")} ₽
+                      </span>
+                    </td>
+                    <td className="px-3 py-3.5 text-right text-default-400 text-xs tabular-nums">
+                      {tx.balanceAfter.toLocaleString("ru-RU")} ₽
+                    </td>
+                    <td className="pr-5 py-3.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setModalTx(tx);
+                        }}
+                        className="text-default-400 hover:text-foreground transition-colors"
+                        aria-label="Открыть детали"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-t border-divider">
+          <div className="flex items-center gap-2 text-sm text-default-400">
+            <span>Строк:</span>
+            {PAGE_SIZES.map((s) => (
+              <button
+                key={s}
+                onClick={() => {
+                  setPageSize(s);
+                  setPage(1);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  pageSize === s
+                    ? "bg-content3 text-foreground"
+                    : "hover:bg-content2 text-default-400"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 text-sm">
+            <span className="text-default-400 mr-2">
+              {(page - 1) * pageSize + 1}–
+              {Math.min(page * pageSize, sorted.length)} из {sorted.length}
+            </span>
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="p-1.5 rounded-lg hover:bg-content2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="p-1.5 rounded-lg hover:bg-content2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {modalTx && (
+        <TransactionDetailModal tx={modalTx} onClose={() => setModalTx(null)} />
+      )}
+    </div>
+  );
+}
+
+
+
+================================================================================
+File path: app/page.tsx
+================================================================================
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  redirect("/login");
+}
+
+
+
+================================================================================
+File path: app/accounts/page.tsx
+================================================================================
+"use client";
+
+import { useState } from "react";
+import { Plus, Pencil, Trash2, X, Building2 } from "lucide-react";
+import { mockAccounts, type Account } from "@/lib/mock-data";
+
+const BANKS = ["Сбербанк", "Тинькофф", "Альфа-Банк", "ВТБ", "Газпромбанк", "Открытие"];
+const CURRENCIES = ["RUB", "USD", "EUR"] as const;
+
+const BANK_COLORS: Record<string, string> = {
+  Сбербанк: "from-[#21A038] to-[#1a8030]",
+  Тинькофф: "from-[#FFD600] to-[#e6c200]",
+  "Альфа-Банк": "from-[#EF3124] to-[#c42820]",
+  ВТБ: "from-[#003087] to-[#002070]",
+  Газпромбанк: "from-[#00529B] to-[#004080]",
+  Открытие: "from-[#FF6600] to-[#d45500]",
+};
+
+type AccountFormData = Omit<Account, "id">;
+
+const emptyForm: AccountFormData = {
+  name: "",
+  number: "",
+  bank: "Сбербанк",
+  currency: "RUB",
+  balance: 0,
+  isActive: true,
+};
+
+export default function AccountsPage() {
+  const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<AccountFormData>(emptyForm);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+
+  const openAdd = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setModalOpen(true);
+  };
+
+  const openEdit = (acc: Account) => {
+    setEditingId(acc.id);
+    setForm({
+      name: acc.name,
+      number: acc.number,
+      bank: acc.bank,
+      currency: acc.currency,
+      balance: acc.balance,
+      isActive: acc.isActive,
+    });
+    setModalOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!form.name.trim() || !form.number.trim()) return;
+    if (editingId !== null) {
+      setAccounts((prev) =>
+        prev.map((a) => (a.id === editingId ? { ...form, id: editingId } : a))
+      );
+    } else {
+      const newId = Math.max(...accounts.map((a) => a.id), 0) + 1;
+      setAccounts((prev) => [...prev, { ...form, id: newId }]);
+    }
+    setModalOpen(false);
+  };
+
+  const handleDelete = (id: number) => {
+    setAccounts((prev) => prev.filter((a) => a.id !== id));
+    setDeleteConfirm(null);
+  };
+
+  const toggleActive = (id: number) => {
+    setAccounts((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, isActive: !a.isActive } : a))
+    );
+  };
+
+  const totalBalance = accounts
+    .filter((a) => a.isActive)
+    .reduce((s, a) => s + a.balance, 0);
+
+  const maskNumber = (n: string) =>
+    n.length > 4 ? `${n.slice(0, 5)}...${n.slice(-4)}` : n;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <nav className="text-xs text-default-400 mb-1">
+            <span>Dashboard</span>
+            <span className="mx-1.5">/</span>
+            <span className="text-foreground">Счета</span>
+          </nav>
+          <h1 className="text-3xl font-bold text-foreground">Счета</h1>
+          <p className="text-sm text-default-500 mt-1">
+            Общий баланс активных счетов:{" "}
+            <span className="font-semibold text-[#00E5FF]">
+              {totalBalance.toLocaleString("ru-RU")} ₽
+            </span>
+          </p>
+        </div>
+        <button
+          onClick={openAdd}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-opacity shadow-glow"
+        >
+          <Plus className="w-4 h-4" />
+          Добавить счет
+        </button>
+      </div>
+
+      {/* Cards grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {accounts.map((acc) => (
+          <div
+            key={acc.id}
+            className={`glass-card rounded-2xl p-5 hover-lift transition-all ${
+              !acc.isActive ? "opacity-60" : ""
+            }`}
+          >
+            {/* Card top stripe */}
+            <div
+              className={`h-1.5 rounded-full bg-gradient-to-r ${
+                BANK_COLORS[acc.bank] || "from-[#00E5FF] to-[#0066FF]"
+              } mb-5`}
+            />
+
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-foreground text-base truncate">
+                  {acc.name}
+                </p>
+                <p className="text-xs text-default-400 mt-0.5 font-mono">
+                  {maskNumber(acc.number)}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 ml-2">
+                <button
+                  onClick={() => openEdit(acc)}
+                  className="p-1.5 rounded-lg text-default-400 hover:text-foreground hover:bg-content2 transition-colors"
+                  aria-label="Изменить"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setDeleteConfirm(acc.id)}
+                  className="p-1.5 rounded-lg text-default-400 hover:text-[#FF3366] hover:bg-[#FF3366]/10 transition-colors"
+                  aria-label="Удалить"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 className="w-3.5 h-3.5 text-default-400" />
+              <span className="text-xs text-default-500">{acc.bank}</span>
+              <span className="text-xs text-default-400 ml-1 px-1.5 py-0.5 rounded bg-content2">
+                {acc.currency}
+              </span>
+            </div>
+
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs text-default-400 mb-0.5">Текущий баланс</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {acc.balance.toLocaleString("ru-RU")} ₽
+                </p>
+              </div>
+              {/* Active toggle */}
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-xs font-medium ${
+                    acc.isActive ? "text-[#00FFA3]" : "text-default-400"
+                  }`}
+                >
+                  {acc.isActive ? "Активный" : "Архивный"}
+                </span>
+                <Toggle checked={acc.isActive} onChange={() => toggleActive(acc.id)} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Add/Edit Modal */}
+      {modalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setModalOpen(false)}
+        >
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className="relative glass-card rounded-2xl w-full max-w-md p-6 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setModalOpen(false)}
+              className="absolute top-4 right-4 text-default-400 hover:text-foreground p-1 rounded-lg hover:bg-content2"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-lg font-bold mb-5">
+              {editingId !== null ? "Редактировать счет" : "Добавить счет"}
+            </h2>
+            <div className="space-y-4">
+              <Field label="Название счета">
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Сбер Зарплатная"
+                  className="input-field"
+                />
+              </Field>
+              <Field label="Номер счета">
+                <input
+                  value={form.number}
+                  onChange={(e) => setForm({ ...form, number: e.target.value })}
+                  placeholder="40817810900001234"
+                  className="input-field font-mono"
+                />
+              </Field>
+              <Field label="Банк">
+                <select
+                  value={form.bank}
+                  onChange={(e) => setForm({ ...form, bank: e.target.value })}
+                  className="input-field"
+                >
+                  {BANKS.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Валюта">
+                <select
+                  value={form.currency}
+                  onChange={(e) =>
+                    setForm({ ...form, currency: e.target.value as Account["currency"] })
+                  }
+                  className="input-field"
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <div className="flex items-center justify-between py-3 border-t border-divider">
+                <span className="text-sm font-medium">Активный счет</span>
+                <Toggle checked={form.isActive} onChange={() => setForm({ ...form, isActive: !form.isActive })} />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setModalOpen(false)}
+                className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleSave}
+                className="flex-1 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm modal */}
+      {deleteConfirm !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setDeleteConfirm(null)}
+          />
+          <div className="relative glass-card rounded-2xl w-full max-w-sm p-6 animate-scale-in">
+            <h2 className="text-lg font-bold mb-2">Удалить счет?</h2>
+            <p className="text-sm text-default-500 mb-5">
+              Это действие нельзя отменить. Транзакции по счету останутся.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                className="flex-1 h-10 rounded-xl bg-[#FF3366] text-white text-sm font-semibold hover:bg-[#CC2952] transition-colors"
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-default-600">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      onClick={onChange}
+      role="switch"
+      aria-checked={checked}
+      className={`relative inline-flex w-10 h-6 rounded-full transition-colors flex-shrink-0 focus:outline-none ${
+        checked ? "bg-[#00FFA3]" : "bg-content3"
+      }`}
+    >
+      <span
+        className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+          checked ? "translate-x-5" : "translate-x-1"
+        }`}
+      />
+    </button>
+  );
+}
+
+
+
+================================================================================
+File path: app/settings/page.tsx
+================================================================================
+"use client";
+
+import { useState } from "react";
+import {
+  User,
+  Lock,
+  Link2,
+  Bell,
+  Camera,
+  Copy,
+  Check,
+  Download,
+  FileText,
+  Send,
+  Trash2,
+  ExternalLink,
+} from "lucide-react";
+
+type Tab = "profile" | "security" | "integrations" | "notifications";
+
+const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: "profile", label: "Профиль", icon: <User className="w-4 h-4" /> },
+  { id: "security", label: "Безопасность", icon: <Lock className="w-4 h-4" /> },
+  { id: "integrations", label: "Интеграции", icon: <Link2 className="w-4 h-4" /> },
+  { id: "notifications", label: "Уведомления", icon: <Bell className="w-4 h-4" /> },
+];
+
+const SESSIONS = [
+  { id: 1, device: "Chrome / macOS", location: "Москва, RU", active: true, lastSeen: "Сейчас" },
+  { id: 2, device: "Safari / iPhone", location: "Москва, RU", active: false, lastSeen: "2 часа назад" },
+  { id: 3, device: "Firefox / Windows", location: "Санкт-Петербург, RU", active: false, lastSeen: "3 дня назад" },
+];
+
+const WEBHOOK_URL = "https://autoflow.dev/api/webhook/abc123xyz789";
+
+export default function SettingsPage() {
+  const [tab, setTab] = useState<Tab>("profile");
+
+  // Profile
+  const [name, setName] = useState("AutoFlow User");
+  const [email, setEmail] = useState("user@autoflow.dev");
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  // Security
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [sessions, setSessions] = useState(SESSIONS);
+
+  // Integrations
+  const [telegramConnected] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Notifications
+  const [notifTelegram, setNotifTelegram] = useState(true);
+  const [notifEmail, setNotifEmail] = useState(false);
+  const [notifPush, setNotifPush] = useState(true);
+
+  const handleSaveProfile = () => {
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 2000);
+  };
+
+  const handleCopyWebhook = () => {
+    navigator.clipboard.writeText(WEBHOOK_URL).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const terminateSession = (id: number) => {
+    setSessions((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      {/* Header */}
+      <div>
+        <nav className="text-xs text-default-400 mb-1">
+          <span>Dashboard</span>
+          <span className="mx-1.5">/</span>
+          <span className="text-foreground">Настройки</span>
+        </nav>
+        <h1 className="text-3xl font-bold text-foreground">Настройки</h1>
+      </div>
+
+      {/* Tab bar */}
+      <div className="flex flex-wrap gap-1 p-1 glass-card rounded-xl">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === t.id
+                ? "bg-content3 text-foreground"
+                : "text-default-400 hover:text-foreground hover:bg-content2"
+            }`}
+          >
+            {t.icon}
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Profile Tab */}
+      {tab === "profile" && (
+        <div className="glass-card rounded-2xl p-6 space-y-6">
+          {/* Avatar */}
+          <div className="flex items-center gap-5">
+            <div className="relative">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
+                <span className="text-2xl font-bold text-black">AF</span>
+              </div>
+              <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-content3 border border-divider flex items-center justify-center hover:bg-content2 transition-colors">
+                <Camera className="w-3.5 h-3.5 text-default-400" />
+              </button>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">{name}</p>
+              <p className="text-sm text-default-400">{email}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-2 border-t border-divider">
+            <Field label="Имя пользователя">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="input-field"
+              />
+            </Field>
+            <Field label="Email">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-field"
+              />
+            </Field>
+            <Field label="Telegram ID">
+              <input
+                value="@autoflow_user"
+                readOnly
+                className="input-field opacity-60 cursor-not-allowed"
+              />
+            </Field>
+          </div>
+
+          <button
+            onClick={handleSaveProfile}
+            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-all"
+          >
+            {profileSaved ? (
+              <>
+                <Check className="w-4 h-4" />
+                Сохранено
+              </>
+            ) : (
+              "Сохранить изменения"
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Security Tab */}
+      {tab === "security" && (
+        <div className="space-y-5">
+          <div className="glass-card rounded-2xl p-6 space-y-4">
+            <h2 className="text-base font-semibold">Изменить пароль</h2>
+            <Field label="Текущий пароль">
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="••••••••"
+                className="input-field"
+              />
+            </Field>
+            <Field label="Новый пароль">
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Минимум 8 символов"
+                className="input-field"
+              />
+            </Field>
+            <Field label="Подтверждение пароля">
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                className="input-field"
+              />
+            </Field>
+            {newPassword && confirmPassword && newPassword !== confirmPassword && (
+              <p className="text-xs text-[#FF3366]">Пароли не совпадают</p>
+            )}
+            <button
+              disabled={
+                !currentPassword ||
+                !newPassword ||
+                newPassword.length < 8 ||
+                newPassword !== confirmPassword
+              }
+              className="px-5 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Изменить пароль
+            </button>
+          </div>
+
+          <div className="glass-card rounded-2xl p-6 space-y-4">
+            <h2 className="text-base font-semibold">Активные сессии</h2>
+            <div className="space-y-3">
+              {sessions.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between py-3 border-b border-divider/40 last:border-0"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">{s.device}</p>
+                      {s.active && (
+                        <span className="px-2 py-0.5 rounded-full bg-[#00FFA3]/10 text-[#00FFA3] text-xs font-medium">
+                          Текущая
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-default-400 mt-0.5">
+                      {s.location} — {s.lastSeen}
+                    </p>
+                  </div>
+                  {!s.active && (
+                    <button
+                      onClick={() => terminateSession(s.id)}
+                      className="p-1.5 rounded-lg text-default-400 hover:text-[#FF3366] hover:bg-[#FF3366]/10 transition-colors"
+                      aria-label="Завершить сессию"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Integrations Tab */}
+      {tab === "integrations" && (
+        <div className="space-y-5">
+          {/* Telegram */}
+          <div className="glass-card rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#229ED9]/10 text-[#229ED9] flex items-center justify-center">
+                  <Send className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">Telegram бот</p>
+                  <p className="text-xs text-default-400">Загрузка выписок и уведомления</p>
+                </div>
+              </div>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  telegramConnected
+                    ? "bg-[#00FFA3]/10 text-[#00FFA3]"
+                    : "bg-content3 text-default-400"
+                }`}
+              >
+                {telegramConnected ? "Подключен" : "Не подключен"}
+              </span>
+            </div>
+            {!telegramConnected && (
+              <button className="flex items-center gap-2 px-4 h-10 rounded-xl bg-[#229ED9]/10 border border-[#229ED9]/30 text-[#229ED9] text-sm font-medium hover:bg-[#229ED9]/20 transition-colors">
+                <ExternalLink className="w-4 h-4" />
+                Подключить Telegram
+              </button>
+            )}
+            {telegramConnected && (
+              <p className="text-xs text-default-400">
+                Последняя загрузка: 09.03.2026 в 14:30
+              </p>
+            )}
+          </div>
+
+          {/* Webhook */}
+          <div className="glass-card rounded-2xl p-6 space-y-4">
+            <div>
+              <p className="font-semibold text-foreground mb-1">Webhook URL</p>
+              <p className="text-xs text-default-400">
+                Используйте этот URL для автоматической загрузки выписок
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={WEBHOOK_URL}
+                readOnly
+                className="input-field font-mono text-xs flex-1 opacity-70 cursor-not-allowed"
+              />
+              <button
+                onClick={handleCopyWebhook}
+                className="px-4 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium flex items-center gap-2 flex-shrink-0"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 text-[#00FFA3]" />
+                    <span className="text-[#00FFA3]">Скопировано</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    Копировать
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Export */}
+          <div className="glass-card rounded-2xl p-6 space-y-4">
+            <p className="font-semibold text-foreground">Экспорт данных</p>
+            <div className="flex flex-wrap gap-3">
+              <button className="flex items-center gap-2 px-4 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium">
+                <Download className="w-4 h-4 text-[#00FFA3]" />
+                Экспорт транзакций в CSV
+              </button>
+              <button className="flex items-center gap-2 px-4 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium">
+                <FileText className="w-4 h-4 text-[#FF3366]" />
+                Экспорт отчета в PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications Tab */}
+      {tab === "notifications" && (
+        <div className="glass-card rounded-2xl p-6 space-y-1">
+          <h2 className="text-base font-semibold mb-4">Уведомления</h2>
+          <NotifRow
+            label="Уведомления в Telegram о новых транзакциях"
+            description="Получайте мгновенные уведомления о каждой операции"
+            value={notifTelegram}
+            onChange={setNotifTelegram}
+          />
+          <NotifRow
+            label="Еженедельный отчет по email"
+            description="Сводка доходов и расходов каждый понедельник"
+            value={notifEmail}
+            onChange={setNotifEmail}
+          />
+          <NotifRow
+            label="Push-уведомления в браузере"
+            description="Уведомления прямо в браузере без Telegram"
+            value={notifPush}
+            onChange={setNotifPush}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-default-600">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function NotifRow({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between py-4 border-b border-divider/40 last:border-0">
+      <div className="pr-4">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="text-xs text-default-400 mt-0.5">{description}</p>
+      </div>
+      <button
+        onClick={() => onChange(!value)}
+        role="switch"
+        aria-checked={value}
+        className={`relative inline-flex w-10 h-6 rounded-full transition-colors flex-shrink-0 focus:outline-none ${
+          value ? "bg-[#00FFA3]" : "bg-content3"
+        }`}
+      >
+        <span
+          className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+            value ? "translate-x-5" : "translate-x-1"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
+
+
+================================================================================
+File path: app/analytics/page.tsx
+================================================================================
+"use client";
+
+import { useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  AreaChart,
+  Area,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  mockMonthlyData,
+  mockTopMerchants,
+  mockBalanceData,
+} from "@/lib/mock-data";
+import { ChevronDown, RefreshCw, Bot } from "lucide-react";
+
+const AI_RECS = [
+  "Вы потратили на такси на 23% больше, чем в среднем. Попробуйте использовать метро — это сэкономит до 4 000 ₽/мес.",
+  "Расходы на супермаркеты составляют 8% дохода. Список покупок поможет снизить спонтанные траты на 15%.",
+  "У вас есть 92 450 ₽ свободных средств. Рассмотрите открытие накопительного счёта под 12% годовых — это +11 094 ₽ в год.",
+  "В марте вы тратили больше всего в пятницу и субботу. Планируйте крупные покупки на будни, когда акций больше.",
+];
+
+const ACCOUNTS = ["Все счета", "Сбер Зарплатная", "Тинькофф Карта"];
+const CATEGORIES = [
+  "Все категории",
+  "Супермаркеты",
+  "Такси",
+  "Кафе",
+  "ЖКХ",
+  "Развлечения",
+  "Покупки",
+];
+
+export default function AnalyticsPage() {
+  const [account, setAccount] = useState("Все счета");
+  const [category, setCategory] = useState("Все категории");
+  const [loadingRecs, setLoadingRecs] = useState(false);
+  const [recIndex, setRecIndex] = useState(0);
+
+  const handleRefreshRecs = async () => {
+    setLoadingRecs(true);
+    await new Promise((r) => setTimeout(r, 1500));
+    setRecIndex((i) => (i + 1) % AI_RECS.length);
+    setLoadingRecs(false);
+  };
+
+  const maxMerchant = Math.max(...mockTopMerchants.map((m) => m.total));
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <nav className="text-xs text-default-400 mb-1">
+            <span>Dashboard</span>
+            <span className="mx-1.5">/</span>
+            <span className="text-foreground">Аналитика</span>
+          </nav>
+          <h1 className="text-3xl font-bold text-foreground text-balance">Аналитика</h1>
+        </div>
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2">
+          <SelectFilter
+            value={account}
+            options={ACCOUNTS}
+            onChange={setAccount}
+          />
+          <SelectFilter
+            value={category}
+            options={CATEGORIES}
+            onChange={setCategory}
+          />
+        </div>
+      </div>
+
+      {/* Charts row 1: Monthly comparison + top merchants */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Monthly bar chart */}
+        <div className="glass-card rounded-2xl p-6">
+          <h2 className="text-base font-semibold mb-5 text-foreground">
+            Сравнение месяцев
+          </h2>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={mockMonthlyData} barCategoryGap="30%" barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <XAxis
+                dataKey="month"
+                tick={{ fill: "#9CA3AF", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: "#9CA3AF", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                width={36}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "#111113",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "12px",
+                  fontSize: 12,
+                }}
+                formatter={(value: number) => [`${value.toLocaleString("ru-RU")} ₽`]}
+                labelStyle={{ color: "#9CA3AF" }}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 12, paddingTop: "12px" }}
+                formatter={(v) => (v === "income" ? "Доходы" : "Расходы")}
+              />
+              <Bar dataKey="income" fill="#00FFA3" radius={[4, 4, 0, 0]} name="income" />
+              <Bar dataKey="expense" fill="#FF3366" radius={[4, 4, 0, 0]} name="expense" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Top merchants horizontal bar */}
+        <div className="glass-card rounded-2xl p-6">
+          <h2 className="text-base font-semibold mb-5 text-foreground">
+            Топ-8 мест трат
+          </h2>
+          <div className="space-y-3">
+            {mockTopMerchants.map((m, i) => (
+              <div key={i} className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-default-600 truncate pr-2">{m.merchant}</span>
+                  <span className="font-semibold text-foreground tabular-nums flex-shrink-0">
+                    {m.total.toLocaleString("ru-RU")} ₽
+                  </span>
+                </div>
+                <div className="h-2 bg-content3 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#00E5FF] rounded-full transition-all"
+                    style={{ width: `${(m.total / maxMerchant) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Balance dynamics area chart */}
+      <div className="glass-card rounded-2xl p-6">
+        <h2 className="text-base font-semibold mb-5 text-foreground">
+          Динамика баланса
+        </h2>
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={mockBalanceData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#00E5FF" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="#00E5FF" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+            <XAxis
+              dataKey="date"
+              tick={{ fill: "#9CA3AF", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fill: "#9CA3AF", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+              width={40}
+            />
+            <Tooltip
+              contentStyle={{
+                background: "#111113",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "12px",
+                fontSize: 12,
+              }}
+              formatter={(value: number) => [`${value.toLocaleString("ru-RU")} ₽`, "Баланс"]}
+              labelStyle={{ color: "#9CA3AF" }}
+            />
+            <Area
+              type="monotone"
+              dataKey="balance"
+              stroke="#00E5FF"
+              strokeWidth={2}
+              fill="url(#balanceGradient)"
+              dot={{ r: 3, fill: "#00E5FF" }}
+              activeDot={{ r: 5 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* AI Recommendations */}
+      <div className="glass-card rounded-2xl p-6 border border-[#00E5FF]/20">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#00E5FF]/10 text-[#00E5FF] flex items-center justify-center">
+              <Bot className="w-5 h-5" />
+            </div>
+            <h2 className="text-base font-semibold text-foreground">
+              Персональные рекомендации
+            </h2>
+          </div>
+          <button
+            onClick={handleRefreshRecs}
+            disabled={loadingRecs}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium disabled:opacity-60"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingRecs ? "animate-spin" : ""}`} />
+            {loadingRecs ? "Анализируем..." : "Обновить"}
+          </button>
+        </div>
+        <div className="space-y-3">
+          {loadingRecs ? (
+            <>
+              <SkeletonLine width="90%" />
+              <SkeletonLine width="75%" />
+              <SkeletonLine width="85%" />
+            </>
+          ) : (
+            [AI_RECS[recIndex], AI_RECS[(recIndex + 1) % AI_RECS.length]].map(
+              (rec, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 p-4 rounded-xl bg-content2"
+                >
+                  <span className="text-[#00E5FF] text-sm font-bold flex-shrink-0 mt-0.5">
+                    {i + 1}
+                  </span>
+                  <p className="text-sm text-default-600 leading-relaxed">{rec}</p>
+                </div>
+              )
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SelectFilter({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors whitespace-nowrap"
+      >
+        {value}
+        <ChevronDown className="w-3.5 h-3.5 text-default-400" />
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-48 rounded-xl py-1 z-50 shadow-xl border border-divider" style={{ background: "var(--heroui-content2)" }}>
+          {options.map((o) => (
+            <button
+              key={o}
+              onClick={() => {
+                onChange(o);
+                setOpen(false);
+              }}
+              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${
+                o === value ? "text-[#00E5FF] font-medium" : "text-foreground"
+              }`}
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SkeletonLine({ width }: { width: string }) {
+  return (
+    <div
+      className="h-5 bg-content2 rounded-lg shimmer"
+      style={{ width }}
+    />
+  );
+}
+
+
+
+================================================================================
+File path: components/dashboard/StatCard.tsx
+================================================================================
+"use client";
+
+import { Card, CardBody } from "@heroui/react";
+import { Wallet, TrendingUp, TrendingDown, LucideIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+
+// Маппинг строковых идентификаторов на компоненты иконок
+const iconMap: Record<string, LucideIcon> = {
+  wallet: Wallet,
+  "trending-up": TrendingUp,
+  "trending-down": TrendingDown,
+};
+
+interface StatCardProps {
+  label: string;
+  value: string;
+  change: number;
+  trend: "up" | "down";
+  icon: "wallet" | "trending-up" | "trending-down";  // ← Строка, а не компонент
+  color: "primary" | "success" | "danger";
+}
+
+export default function StatCard({
+  label,
+  value,
+  change,
+  trend,
+  icon,
+  color,
+}: StatCardProps) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
+  // Получаем компонент иконки из маппинга
+  const Icon = iconMap[icon];
+
+  const colorClasses = {
+    primary: "text-[#00E5FF] bg-[#00E5FF]/10",
+    success: "text-[#00FFA3] bg-[#00FFA3]/10",
+    danger: "text-[#FF3366] bg-[#FF3366]/10",
+  };
+
+  const glowClasses = {
+    primary: "glow-primary",
+    success: "glow-success",
+    danger: "glow-danger",
+  };
+
+  return (
+    <Card
+      className={`glass-card hover-lift card-hover-glow transition-all ${
+        isVisible ? "animate-scale-in" : "opacity-0"
+      }`}
+    >
+      <CardBody className="p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className="text-sm text-default-500 mb-1">{label}</p>
+            <h3 className="text-3xl font-bold mb-2">{value}</h3>
+            <div className="flex items-center gap-1">
+              {trend === "up" ? (
+                <span className="text-[#00FFA3] text-sm font-medium">
+                  ↗ +{Math.abs(change)}%
+                </span>
+              ) : (
+                <span className="text-[#FF3366] text-sm font-medium">
+                  ↘ {change}%
+                </span>
+              )}
+              <span className="text-xs text-default-400 ml-1">за месяц</span>
+            </div>
+          </div>
+          <div
+            className={`w-14 h-14 rounded-xl ${colorClasses[color]} flex items-center justify-center ${glowClasses[color]}`}
+          >
+            <Icon className="w-7 h-7" />
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+
+
+================================================================================
+File path: components/dashboard/TransactionList.tsx
+================================================================================
+"use client";
+
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
+} from "@heroui/react";
+
+interface Transaction {
+  id: number;
+  date: string;
+  merchant: string;
+  amount: number;
+  category: string;
+}
+
+interface TransactionListProps {
+  transactions: Transaction[];
+}
+
+export default function TransactionList({
+  transactions,
+}: TransactionListProps) {
+  return (
+    <Card className="glass-card animate-slide-up">
+      <CardHeader>
+        <h2 className="text-2xl font-bold">Последние транзакции</h2>
+      </CardHeader>
+      <CardBody>
+        <Table
+          removeWrapper
+          aria-label="Таблица транзакций"
+          classNames={{
+            base: "bg-transparent",
+            th: "bg-content2 text-default-600 font-semibold",
+            td: "text-default-700 dark:text-default-300",
+          }}
+        >
+          <TableHeader>
+            <TableColumn>ДАТА</TableColumn>
+            <TableColumn>КОНТРАГЕНТ</TableColumn>
+            <TableColumn>КАТЕГОРИЯ</TableColumn>
+            <TableColumn align="end">СУММА</TableColumn>
+          </TableHeader>
+          <TableBody>
+            {transactions.map((tx) => (
+              <TableRow key={tx.id} className="hover:bg-content2 transition-colors">
+                <TableCell>{tx.date}</TableCell>
+                <TableCell className="font-medium">{tx.merchant}</TableCell>
+                <TableCell>
+                  <Chip size="sm" variant="flat">
+                    {tx.category}
+                  </Chip>
+                </TableCell>
+                <TableCell>
+                  <span
+                    className={`font-semibold ${
+                      tx.amount > 0
+                        ? "text-[#00FFA3]"
+                        : "text-[#FF3366]"
+                    }`}
+                  >
+                    {tx.amount > 0 ? "+" : ""}
+                    {Math.abs(tx.amount).toLocaleString("ru-RU")} ₽
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardBody>
+    </Card>
+  );
+}
+
+
+
+================================================================================
+File path: components/dashboard/TransactionDetailModal.tsx
+================================================================================
+"use client";
+
+import { X, Calendar, CreditCard, Tag, Hash, ArrowRightLeft } from "lucide-react";
+import type { Transaction } from "@/lib/mock-data";
+
+interface Props {
+  tx: Transaction;
+  onClose: () => void;
+}
+
+export default function TransactionDetailModal({ tx, onClose }: Props) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+      {/* Modal */}
+      <div
+        className="relative glass-card rounded-2xl w-full max-w-md p-6 animate-scale-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-default-400 hover:text-foreground transition-colors p-1 rounded-lg hover:bg-content2"
+          aria-label="Закрыть"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Header */}
+        <div className="mb-6">
+          <p className="text-xs text-default-400 uppercase tracking-wide mb-1">Детали операции</p>
+          <h2 className="text-xl font-bold text-foreground">{tx.merchant}</h2>
+          <p
+            className={`text-2xl font-bold mt-1 ${
+              tx.amount > 0 ? "text-[#00FFA3]" : "text-[#FF3366]"
+            }`}
+          >
+            {tx.amount > 0 ? "+" : ""}
+            {tx.amount.toLocaleString("ru-RU")} ₽
+          </p>
+        </div>
+
+        {/* Details grid */}
+        <div className="space-y-3">
+          <DetailRow
+            icon={<Calendar className="w-4 h-4" />}
+            label="Дата операции"
+            value={`${tx.date} в ${tx.time}`}
+          />
+          <DetailRow
+            icon={<Calendar className="w-4 h-4" />}
+            label="Дата обработки"
+            value={tx.processedDate}
+          />
+          <DetailRow
+            icon={<Tag className="w-4 h-4" />}
+            label="Категория"
+            value={tx.category}
+          />
+          <DetailRow
+            icon={<CreditCard className="w-4 h-4" />}
+            label="Счет"
+            value={tx.account}
+          />
+          <DetailRow
+            icon={<ArrowRightLeft className="w-4 h-4" />}
+            label="Баланс после операции"
+            value={`${tx.balanceAfter.toLocaleString("ru-RU")} ₽`}
+          />
+          <DetailRow
+            icon={<Hash className="w-4 h-4" />}
+            label="Код авторизации"
+            value={tx.authCode}
+            mono
+          />
+        </div>
+
+        {/* Change category button */}
+        <div className="mt-6 pt-4 border-t border-divider">
+          <button className="w-full h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium text-foreground">
+            Изменить категорию
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({
+  icon,
+  label,
+  value,
+  mono,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between py-2.5 border-b border-divider/40 last:border-0">
+      <div className="flex items-center gap-2.5 text-default-400">
+        {icon}
+        <span className="text-sm">{label}</span>
+      </div>
+      <span
+        className={`text-sm font-medium text-foreground text-right ${
+          mono ? "font-mono text-xs" : ""
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+
+
+================================================================================
+File path: components/dashboard/BudgetProgress.tsx
+================================================================================
+"use client";
+
+import { Card, CardBody, CardHeader, Progress } from "@heroui/react";
+
+interface BudgetItem {
+  category: string;
+  spent: number;
+  limit: number;
+  color: "success" | "warning" | "danger";
+}
+
+interface BudgetProgressProps {
+  budgets: BudgetItem[];
+}
+
+export default function BudgetProgress({ budgets }: BudgetProgressProps) {
+  return (
+    <Card className="glass-card animate-slide-up">
+      <CardHeader>
+        <h2 className="text-2xl font-bold">Бюджет по категориям</h2>
+      </CardHeader>
+      <CardBody className="space-y-6">
+        {budgets.map((budget, idx) => {
+          const percentage = (budget.spent / budget.limit) * 100;
+          return (
+            <div key={idx} className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">{budget.category}</span>
+                <span className="text-sm text-default-500">
+                  {budget.spent.toLocaleString("ru-RU")} ₽ /{" "}
+                  {budget.limit.toLocaleString("ru-RU")} ₽
+                </span>
+              </div>
+              <Progress
+                value={percentage}
+                color={budget.color}
+                size="md"
+                className="w-full"
+                classNames={{
+                  indicator: percentage > 90 ? "animate-glow-pulse" : "",
+                }}
+              />
+              <div className="flex justify-between items-center text-xs text-default-400">
+                <span>{percentage.toFixed(0)}% использовано</span>
+                <span>
+                  Осталось: {(budget.limit - budget.spent).toLocaleString("ru-RU")} ₽
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </CardBody>
+    </Card>
+  );
+}
+
+
+
+================================================================================
+File path: components/layout/AppShell.tsx
+================================================================================
+"use client";
+
+import { usePathname } from "next/navigation";
+import Sidebar from "./Sidebar";
+
+const NO_SIDEBAR_ROUTES = ["/login"];
+
+export default function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const hasSidebar = !NO_SIDEBAR_ROUTES.includes(pathname);
+
+  if (!hasSidebar) {
+    return <>{children}</>;
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <main className="flex-1 ml-64 min-h-screen bg-background">
+        <div className="container-custom section-spacing page-transition">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+
+
+================================================================================
+File path: components/layout/Sidebar.tsx
+================================================================================
+"use client";
+
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Receipt,
+  Settings,
+  Wallet,
+  Building2,
+  Moon,
+  Sun,
+  LogOut,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+
+const navItems = [
+  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+  { icon: TrendingUp, label: "Аналитика", href: "/analytics" },
+  { icon: Receipt, label: "Транзакции", href: "/transactions" },
+  { icon: Building2, label: "Счета", href: "/accounts" },
+  { icon: Settings, label: "Настройки", href: "/settings" },
+];
+
+export default function Sidebar() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  return (
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-content1 border-r border-divider flex flex-col z-40">
+      {/* Logo */}
+      <div className="p-6 border-b border-divider">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00E5FF] to-[#0066FF] flex items-center justify-center shadow-glow flex-shrink-0">
+            <Wallet className="w-5 h-5 text-black" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold gradient-text-primary">AutoFlow</h1>
+            <p className="text-xs text-default-500">Finance Dashboard</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-0.5 custom-scrollbar overflow-y-auto">
+        {navItems.map((item) => {
+          const isActive = pathname === item.href;
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-all ${
+                isActive
+                  ? "bg-[#00E5FF]/10 text-[#00E5FF] font-semibold"
+                  : "text-default-500 hover:text-foreground hover:bg-content2 font-normal"
+              }`}
+            >
+              <Icon
+                className={`w-5 h-5 flex-shrink-0 ${
+                  isActive ? "text-[#00E5FF]" : "text-default-400"
+                }`}
+              />
+              <span>{item.label}</span>
+              {isActive && (
+                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#00E5FF]" />
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-divider space-y-2">
+        {/* Theme Switcher */}
+        {mounted && (
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-default-500 hover:text-foreground hover:bg-content2 transition-all font-normal"
+          >
+            {theme === "dark" ? (
+              <Sun className="w-5 h-5 flex-shrink-0 text-default-400" />
+            ) : (
+              <Moon className="w-5 h-5 flex-shrink-0 text-default-400" />
+            )}
+            <span>{theme === "dark" ? "Светлая тема" : "Тёмная тема"}</span>
+          </button>
+        )}
+
+        {/* User Profile */}
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-content2 hover:bg-content3 transition-colors">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-bold text-black">AF</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">AutoFlow User</p>
+            <p className="text-xs text-default-500 truncate">user@autoflow.dev</p>
+          </div>
+          <button
+            onClick={() => router.push("/login")}
+            aria-label="Выйти"
+            className="text-default-400 hover:text-[#FF3366] transition-colors p-1 flex-shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+
+
+================================================================================
+File path: lib/design-tokens.ts
+================================================================================
+
+
+
+================================================================================
+File path: lib/mock-data.ts
+================================================================================
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+export interface Transaction {
+  id: number;
+  date: string; // "DD.MM.YYYY"
+  time: string; // "HH:MM"
+  processedDate: string;
+  merchant: string;
+  category: string;
+  categoryIcon: string;
+  account: string;
+  amount: number;
+  balanceAfter: number;
+  authCode: string;
+  type: "income" | "expense";
+}
+
+export interface Account {
+  id: number;
+  name: string;
+  number: string;
+  bank: string;
+  currency: "RUB" | "USD" | "EUR";
+  balance: number;
+  isActive: boolean;
+}
+
+export interface ChartPoint {
+  date: string;
+  income: number;
+  expense: number;
+  balance: number;
+}
+
+export interface CategoryExpense {
+  name: string;
+  value: number;
+  color: string;
+}
+
+// ─── Mock Transactions ───────────────────────────────────────────────────────
+
+export const mockTransactions: Transaction[] = [
+  {
+    id: 1,
+    date: "09.03.2026",
+    time: "14:32",
+    processedDate: "10.03.2026",
+    merchant: "YANDEX*GO",
+    category: "Такси",
+    categoryIcon: "Car",
+    account: "Сбер Зарплатная",
+    amount: -650,
+    balanceAfter: 251800,
+    authCode: "A49201",
+    type: "expense",
+  },
+  {
+    id: 2,
+    date: "09.03.2026",
+    time: "10:15",
+    processedDate: "09.03.2026",
+    merchant: "PYATEROCHKA",
+    category: "Супермаркеты",
+    categoryIcon: "ShoppingCart",
+    account: "Сбер Зарплатная",
+    amount: -2100,
+    balanceAfter: 252450,
+    authCode: "B31045",
+    type: "expense",
+  },
+  {
+    id: 3,
+    date: "08.03.2026",
+    time: "09:00",
+    processedDate: "08.03.2026",
+    merchant: "ООО Работодатель",
+    category: "Зарплата",
+    categoryIcon: "Briefcase",
+    account: "Сбер Зарплатная",
+    amount: 180000,
+    balanceAfter: 254550,
+    authCode: "SAL0308",
+    type: "income",
+  },
+  {
+    id: 4,
+    date: "07.03.2026",
+    time: "20:44",
+    processedDate: "08.03.2026",
+    merchant: "Кофейня на углу",
+    category: "Кафе",
+    categoryIcon: "Coffee",
+    account: "Тинькофф Карта",
+    amount: -380,
+    balanceAfter: 18420,
+    authCode: "C12839",
+    type: "expense",
+  },
+  {
+    id: 5,
+    date: "07.03.2026",
+    time: "18:30",
+    processedDate: "07.03.2026",
+    merchant: "OZON",
+    category: "Покупки",
+    categoryIcon: "Package",
+    account: "Сбер Зарплатная",
+    amount: -4350,
+    balanceAfter: 74930,
+    authCode: "OZ9381",
+    type: "expense",
+  },
+  {
+    id: 6,
+    date: "06.03.2026",
+    time: "11:00",
+    processedDate: "06.03.2026",
+    merchant: "МосЭнерго ЖКХ",
+    category: "ЖКХ",
+    categoryIcon: "Zap",
+    account: "Тинькофф Карта",
+    amount: -5200,
+    balanceAfter: 18800,
+    authCode: "ZH4401",
+    type: "expense",
+  },
+  {
+    id: 7,
+    date: "06.03.2026",
+    time: "09:22",
+    processedDate: "06.03.2026",
+    merchant: "YANDEX*GO",
+    category: "Такси",
+    categoryIcon: "Car",
+    account: "Тинькофф Карта",
+    amount: -480,
+    balanceAfter: 24000,
+    authCode: "A49202",
+    type: "expense",
+  },
+  {
+    id: 8,
+    date: "05.03.2026",
+    time: "15:10",
+    processedDate: "05.03.2026",
+    merchant: "PYATEROCHKA",
+    category: "Супермаркеты",
+    categoryIcon: "ShoppingCart",
+    account: "Сбер Зарплатная",
+    amount: -1850,
+    balanceAfter: 79280,
+    authCode: "B31046",
+    type: "expense",
+  },
+  {
+    id: 9,
+    date: "04.03.2026",
+    time: "19:45",
+    processedDate: "05.03.2026",
+    merchant: "Кино Парк",
+    category: "Развлечения",
+    categoryIcon: "Film",
+    account: "Тинькофф Карта",
+    amount: -900,
+    balanceAfter: 24480,
+    authCode: "ENT3922",
+    type: "expense",
+  },
+  {
+    id: 10,
+    date: "03.03.2026",
+    time: "12:00",
+    processedDate: "03.03.2026",
+    merchant: "Возврат OZON",
+    category: "Возвраты",
+    categoryIcon: "RefreshCcw",
+    account: "Сбер Зарплатная",
+    amount: 2500,
+    balanceAfter: 81130,
+    authCode: "REF1120",
+    type: "income",
+  },
+  {
+    id: 11,
+    date: "02.03.2026",
+    time: "08:45",
+    processedDate: "02.03.2026",
+    merchant: "Метро Транспорт",
+    category: "Транспорт",
+    categoryIcon: "Train",
+    account: "Тинькофф Карта",
+    amount: -150,
+    balanceAfter: 25380,
+    authCode: "TR0099",
+    type: "expense",
+  },
+  {
+    id: 12,
+    date: "01.03.2026",
+    time: "10:30",
+    processedDate: "01.03.2026",
+    merchant: "Spotify Premium",
+    category: "Подписки",
+    categoryIcon: "Music",
+    account: "Тинькофф Карта",
+    amount: -299,
+    balanceAfter: 25530,
+    authCode: "SPT7712",
+    type: "expense",
+  },
+  {
+    id: 13,
+    date: "28.02.2026",
+    time: "14:00",
+    processedDate: "28.02.2026",
+    merchant: "PYATEROCHKA",
+    category: "Супермаркеты",
+    categoryIcon: "ShoppingCart",
+    account: "Сбер Зарплатная",
+    amount: -3100,
+    balanceAfter: 78630,
+    authCode: "B31050",
+    type: "expense",
+  },
+  {
+    id: 14,
+    date: "27.02.2026",
+    time: "20:00",
+    processedDate: "28.02.2026",
+    merchant: "YANDEX*GO",
+    category: "Такси",
+    categoryIcon: "Car",
+    account: "Сбер Зарплатная",
+    amount: -750,
+    balanceAfter: 81730,
+    authCode: "A49220",
+    type: "expense",
+  },
+  {
+    id: 15,
+    date: "25.02.2026",
+    time: "13:30",
+    processedDate: "25.02.2026",
+    merchant: "Кофейня на углу",
+    category: "Кафе",
+    categoryIcon: "Coffee",
+    account: "Тинькофф Карта",
+    amount: -450,
+    balanceAfter: 25829,
+    authCode: "C12850",
+    type: "expense",
+  },
+];
+
+// ─── Mock Accounts ───────────────────────────────────────────────────────────
+
+export const mockAccounts: Account[] = [
+  {
+    id: 1,
+    name: "Сбер Зарплатная",
+    number: "40817810900001234",
+    bank: "Сбербанк",
+    currency: "RUB",
+    balance: 252450,
+    isActive: true,
+  },
+  {
+    id: 2,
+    name: "Тинькофф Карта",
+    number: "40817810200005678",
+    bank: "Тинькофф",
+    currency: "RUB",
+    balance: 18620,
+    isActive: true,
+  },
+  {
+    id: 3,
+    name: "Альфа Накопительный",
+    number: "40817810600009012",
+    bank: "Альфа-Банк",
+    currency: "RUB",
+    balance: 0,
+    isActive: false,
+  },
+];
+
+// ─── Chart Data ──────────────────────────────────────────────────────────────
+
+export const mockChartData: ChartPoint[] = [
+  { date: "01.03", income: 0, expense: 3100, balance: 74550 },
+  { date: "02.03", income: 0, expense: 150, balance: 74400 },
+  { date: "03.03", income: 2500, expense: 0, balance: 76900 },
+  { date: "04.03", income: 0, expense: 900, balance: 76000 },
+  { date: "05.03", income: 0, expense: 1850, balance: 74150 },
+  { date: "06.03", income: 0, expense: 5680, balance: 68470 },
+  { date: "07.03", income: 0, expense: 4730, balance: 63740 },
+  { date: "08.03", income: 180000, expense: 0, balance: 243740 },
+  { date: "09.03", income: 0, expense: 2750, balance: 241000 },
+];
+
+export const mockMonthlyData = [
+  { month: "Окт", income: 160000, expense: 92000 },
+  { month: "Ноя", income: 165000, expense: 98000 },
+  { month: "Дек", income: 175000, expense: 115000 },
+  { month: "Янв", income: 168000, expense: 88000 },
+  { month: "Фев", income: 172000, expense: 83000 },
+  { month: "Мар", income: 180000, expense: 87550 },
+];
+
+export const mockBalanceData = [
+  { date: "01.03", balance: 74550 },
+  { date: "02.03", balance: 74400 },
+  { date: "03.03", balance: 76900 },
+  { date: "04.03", balance: 76000 },
+  { date: "05.03", balance: 74150 },
+  { date: "06.03", balance: 68470 },
+  { date: "07.03", balance: 63740 },
+  { date: "08.03", balance: 243740 },
+  { date: "09.03", balance: 241000 },
+];
+
+export const mockTopMerchants = [
+  { merchant: "PYATEROCHKA", total: 7150 },
+  { merchant: "YANDEX*GO", total: 1880 },
+  { merchant: "OZON", total: 4350 },
+  { merchant: "МосЭнерго ЖКХ", total: 5200 },
+  { merchant: "Кофейня на углу", total: 830 },
+  { merchant: "Кино Парк", total: 900 },
+  { merchant: "Spotify Premium", total: 299 },
+  { merchant: "Метро Транспорт", total: 150 },
+];
+
+export const mockCategoryExpenses: CategoryExpense[] = [
+  { name: "Супермаркеты", value: 7150, color: "#00E5FF" },
+  { name: "ЖКХ", value: 5200, color: "#0066FF" },
+  { name: "Такси", value: 1880, color: "#FF3366" },
+  { name: "Кафе", value: 830, color: "#FFB800" },
+  { name: "Развлечения", value: 900, color: "#00FFA3" },
+];
+
+// ─── Legacy stats (kept for compatibility) ───────────────────────────────────
+
+export const mockStats = [
+  {
+    label: "Общий баланс",
+    value: "252 450 ₽",
+    change: 12.5,
+    trend: "up" as const,
+    color: "primary" as const,
+    icon: "wallet" as const,
+  },
+  {
+    label: "Доходы",
+    value: "180 000 ₽",
+    change: 12,
+    trend: "up" as const,
+    color: "success" as const,
+    icon: "trending-up" as const,
+  },
+  {
+    label: "Расходы",
+    value: "87 550 ₽",
+    change: -8,
+    trend: "down" as const,
+    color: "danger" as const,
+    icon: "trending-down" as const,
+  },
+];
+
+export const mockBudgets = [
+  { category: "Супермаркеты", spent: 7150, limit: 12000, color: "success" as const },
+  { category: "Транспорт", spent: 1880, limit: 5000, color: "success" as const },
+  { category: "Кафе", spent: 830, limit: 3000, color: "success" as const },
+  { category: "Развлечения", spent: 900, limit: 3000, color: "warning" as const },
+  { category: "ЖКХ", spent: 5200, limit: 6000, color: "warning" as const },
+];
+
+
+
