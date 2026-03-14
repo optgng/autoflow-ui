@@ -1,135 +1,70 @@
-"use client";
-
-import { useState, useMemo } from "react";
-import {
-  Search,
-  X,
-  Upload,
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
-  FileSearch,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { mockTransactions, type Transaction } from "@/lib/mock-data";
-import TransactionDetailModal from "@/components/dashboard/TransactionDetailModal";
-
-const CATEGORIES = [
-  "Все",
-  "Супермаркеты",
-  "Такси",
-  "Кафе",
-  "ЖКХ",
-  "Развлечения",
-  "Покупки",
-  "Зарплата",
-  "Возвраты",
-  "Транспорт",
-  "Подписки",
-];
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { Search, X, ChevronUp, ChevronDown, ChevronsUpDown, FileSearch, ChevronLeft, ChevronRight } from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import { formatDateUI } from '@/lib/types';
+import type { Transaction, Category, TransactionType } from '@/lib/types';
+import { TransactionDetailModal } from '@/components/dashboard/TransactionDetailModal';
 
 const PAGE_SIZES = [10, 25, 50] as const;
-
-type SortKey = keyof Pick<Transaction, "date" | "amount" | "merchant" | "category">;
-type SortDir = "asc" | "desc";
+type SortDir = 'asc' | 'desc';
 
 export default function TransactionsPage() {
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
-  const [categoryFilter, setCategoryFilter] = useState("Все");
-  const [sortKey, setSortKey] = useState<SortKey>("date");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | TransactionType>('all');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [modalTx, setModalTx] = useState<Transaction | null>(null);
 
-  // Filter
-  const filtered = useMemo(() => {
-    return mockTransactions.filter((tx) => {
-      const matchSearch =
-        !search ||
-        tx.merchant.toLowerCase().includes(search.toLowerCase()) ||
-        tx.category.toLowerCase().includes(search.toLowerCase());
-      const matchType =
-        typeFilter === "all" ||
-        (typeFilter === "income" && tx.type === "income") ||
-        (typeFilter === "expense" && tx.type === "expense");
-      const matchCategory =
-        categoryFilter === "Все" || tx.category === categoryFilter;
-      return matchSearch && matchType && matchCategory;
-    });
-  }, [search, typeFilter, categoryFilter]);
+  // Загрузка категорий (единожды)
+  useEffect(() => {
+    apiClient.get('/categories').then((r) => setCategories(r.data ?? []));
+  }, []);
 
-  // Sort
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      let av: string | number = a[sortKey];
-      let bv: string | number = b[sortKey];
-      if (sortKey === "amount") {
-        av = a.amount;
-        bv = b.amount;
-      } else if (sortKey === "date") {
-        // parse DD.MM.YYYY
-        const parseDate = (d: string) => {
-          const [day, month, year] = d.split(".");
-          return new Date(`${year}-${month}-${day}`).getTime();
-        };
-        av = parseDate(a.date);
-        bv = parseDate(b.date);
-      }
-      if (av < bv) return sortDir === "asc" ? -1 : 1;
-      if (av > bv) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [filtered, sortKey, sortDir]);
+  // Загрузка транзакций при изменении фильтров/страницы
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params: Record<string, string | number> = {
+        skip: (page - 1) * pageSize,
+        limit: pageSize,
+      };
+      if (typeFilter !== 'all') params.transaction_type = typeFilter;
+      if (categoryFilter) params.category_id = categoryFilter;
+      if (search) params.search = search;
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const paginated = sorted.slice((page - 1) * pageSize, page * pageSize);
-
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
+      const res = await apiClient.get('/transactions', { params });
+      // Бэкенд возвращает массив; total берём из заголовка X-Total-Count если есть
+      const data: Transaction[] = res.data ?? [];
+      const totalCount = res.headers?.['x-total-count']
+        ? Number(res.headers['x-total-count'])
+        : data.length;
+      setTransactions(data);
+      setTotal(totalCount >= pageSize ? totalCount : (page - 1) * pageSize + data.length);
+    } finally {
+      setIsLoading(false);
     }
-    setPage(1);
-  };
+  }, [page, pageSize, typeFilter, categoryFilter, search]);
 
-  const toggleSelect = (id: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  useEffect(() => { load(); }, [load]);
 
-  const toggleSelectAll = () => {
-    if (selected.size === paginated.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(paginated.map((t) => t.id)));
-    }
-  };
+  // Сброс страницы при смене фильтра
+  const resetPage = () => setPage(1);
 
-  const resetFilters = () => {
-    setSearch("");
-    setTypeFilter("all");
-    setCategoryFilter("Все");
-    setPage(1);
-  };
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ChevronsUpDown className="w-3.5 h-3.5 text-default-400" />;
-    return sortDir === "asc" ? (
-      <ChevronUp className="w-3.5 h-3.5 text-[#00E5FF]" />
-    ) : (
-      <ChevronDown className="w-3.5 h-3.5 text-[#00E5FF]" />
-    );
-  };
+  const sorted = [...transactions].sort((a, b) => {
+    const av = new Date(a.transaction_date).getTime();
+    const bv = new Date(b.transaction_date).getTime();
+    return sortDir === 'asc' ? av - bv : bv - av;
+  });
 
   return (
     <div className="space-y-6">
@@ -137,16 +72,10 @@ export default function TransactionsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <nav className="text-xs text-default-400 mb-1">
-            <span>Dashboard</span>
-            <span className="mx-1.5">/</span>
-            <span className="text-foreground">Транзакции</span>
+            <span>Dashboard</span><span className="mx-1.5">/</span><span className="text-foreground">Транзакции</span>
           </nav>
           <h1 className="text-3xl font-bold text-foreground">Транзакции</h1>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 text-[#00E5FF] text-sm font-medium hover:bg-[#00E5FF]/20 transition-colors">
-          <Upload className="w-4 h-4" />
-          Импортировать выписку
-        </button>
       </div>
 
       {/* Filters */}
@@ -157,31 +86,21 @@ export default function TransactionsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-default-400" />
             <input
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Поиск по месту и категории..."
+              onChange={(e) => { setSearch(e.target.value); resetPage(); }}
+              placeholder="Поиск по описанию, продавцу..."
               className="w-full h-10 pl-9 pr-4 rounded-xl bg-content2 border border-divider text-sm placeholder:text-default-400 focus:outline-none focus:border-[#00E5FF] transition-all"
             />
           </div>
 
           {/* Type filter */}
           <div className="flex rounded-xl overflow-hidden border border-divider h-10">
-            {(["all", "income", "expense"] as const).map((t) => (
+            {(['all', 'income', 'expense'] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => {
-                  setTypeFilter(t);
-                  setPage(1);
-                }}
-                className={`px-4 text-sm font-medium transition-colors ${
-                  typeFilter === t
-                    ? "bg-content3 text-foreground"
-                    : "bg-content2 text-default-400 hover:bg-content3"
-                }`}
+                onClick={() => { setTypeFilter(t); resetPage(); }}
+                className={`px-4 text-sm font-medium transition-colors ${typeFilter === t ? 'bg-content3 text-foreground' : 'bg-content2 text-default-400 hover:bg-content3'}`}
               >
-                {t === "all" ? "Все" : t === "income" ? "Доходы" : "Расходы"}
+                {t === 'all' ? 'Все' : t === 'income' ? 'Доходы' : 'Расходы'}
               </button>
             ))}
           </div>
@@ -189,26 +108,21 @@ export default function TransactionsPage() {
           {/* Category select */}
           <select
             value={categoryFilter}
-            onChange={(e) => {
-              setCategoryFilter(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => { setCategoryFilter(e.target.value); resetPage(); }}
             className="h-10 px-3 rounded-xl bg-content2 border border-divider text-sm text-foreground focus:outline-none focus:border-[#00E5FF] transition-all"
           >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+            <option value="">Все категории</option>
+            {categories.map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
             ))}
           </select>
 
           {/* Reset */}
           <button
-            onClick={resetFilters}
+            onClick={() => { setSearch(''); setTypeFilter('all'); setCategoryFilter(''); resetPage(); }}
             className="flex items-center gap-1.5 px-3.5 h-10 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-foreground hover:bg-content3 transition-colors"
           >
-            <X className="w-3.5 h-3.5" />
-            Сбросить
+            <X className="w-3.5 h-3.5" /> Сбросить
           </button>
         </div>
       </div>
@@ -219,132 +133,77 @@ export default function TransactionsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-divider bg-content2/50">
-                <th className="pl-5 pr-3 py-4 w-10">
-                  <input
-                    type="checkbox"
-                    checked={
-                      paginated.length > 0 && selected.size === paginated.length
-                    }
-                    onChange={toggleSelectAll}
-                    className="rounded border-divider accent-[#00E5FF] cursor-pointer"
-                  />
+                <th className="px-5 py-4 text-left">
+                  <button
+                    onClick={() => setSortDir((d) => d === 'asc' ? 'desc' : 'asc')}
+                    className="flex items-center gap-1.5 text-xs font-medium text-default-400"
+                  >
+                    Дата {sortDir === 'asc'
+                      ? <ChevronUp className="w-3.5 h-3.5 text-[#00E5FF]" />
+                      : <ChevronDown className="w-3.5 h-3.5 text-[#00E5FF]" />}
+                  </button>
                 </th>
-                <th
-                  className="px-3 py-4 text-left cursor-pointer select-none"
-                  onClick={() => toggleSort("date")}
-                >
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-default-400">
-                    Дата и время
-                    <SortIcon col="date" />
-                  </div>
-                </th>
-                <th
-                  className="px-3 py-4 text-left cursor-pointer select-none"
-                  onClick={() => toggleSort("category")}
-                >
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-default-400">
-                    Категория
-                    <SortIcon col="category" />
-                  </div>
-                </th>
-                <th
-                  className="px-3 py-4 text-left cursor-pointer select-none"
-                  onClick={() => toggleSort("merchant")}
-                >
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-default-400">
-                    Место покупки
-                    <SortIcon col="merchant" />
-                  </div>
-                </th>
-                <th className="px-3 py-4 text-left text-xs font-medium text-default-400">
-                  Счет
-                </th>
-                <th
-                  className="px-3 py-4 text-right cursor-pointer select-none"
-                  onClick={() => toggleSort("amount")}
-                >
-                  <div className="flex items-center justify-end gap-1.5 text-xs font-medium text-default-400">
-                    Сумма
-                    <SortIcon col="amount" />
-                  </div>
-                </th>
-                <th className="px-3 py-4 text-right text-xs font-medium text-default-400">
-                  Баланс после
-                </th>
-                <th className="pr-5 py-4 w-10" />
+                {['Категория', 'Описание', 'Счёт', 'Сумма', 'Тип'].map((h) => (
+                  <th key={h} className="px-3 py-4 text-left text-xs font-medium text-default-400">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {isLoading ? (
+                Array(pageSize).fill(0).map((_, i) => (
+                  <tr key={i} className="border-b border-divider/40">
+                    {Array(6).fill(0).map((_, j) => (
+                      <td key={j} className="px-3 py-3.5">
+                        <div className="h-4 shimmer rounded w-full" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={6}>
                     <div className="flex flex-col items-center justify-center py-16 text-center">
                       <FileSearch className="w-12 h-12 text-default-300 mb-3" />
                       <p className="text-default-500 font-medium">Ничего не найдено</p>
-                      <p className="text-sm text-default-400 mt-1">
-                        Попробуйте изменить фильтры
-                      </p>
+                      <p className="text-sm text-default-400 mt-1">Попробуйте изменить фильтры</p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                paginated.map((tx) => (
+                sorted.map((tx) => (
                   <tr
                     key={tx.id}
                     onClick={() => setModalTx(tx)}
-                    className={`border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer ${
-                      selected.has(tx.id) ? "bg-[#00E5FF]/5" : ""
-                    }`}
+                    className="border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer"
                   >
-                    <td
-                      className="pl-5 pr-3 py-3.5"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected.has(tx.id)}
-                        onChange={() => toggleSelect(tx.id)}
-                        className="rounded border-divider accent-[#00E5FF] cursor-pointer"
-                      />
-                    </td>
-                    <td className="px-3 py-3.5 text-default-400 whitespace-nowrap text-xs">
-                      {tx.date} {tx.time}
+                    <td className="px-5 py-3.5 text-default-400 whitespace-nowrap text-xs">
+                      {formatDateUI(tx.transaction_date)}
                     </td>
                     <td className="px-3 py-3.5">
                       <span className="px-2.5 py-0.5 rounded-lg bg-content2 text-xs font-medium text-default-600">
-                        {tx.category}
+                        {tx.category?.name ?? '—'}
                       </span>
                     </td>
                     <td className="px-3 py-3.5 font-medium text-foreground">
-                      {tx.merchant}
+                      {tx.merchant ?? tx.description ?? '—'}
                     </td>
-                    <td className="px-3 py-3.5 text-default-500 text-xs">
-                      {tx.account}
+                    <td className="px-3 py-3.5 text-default-400 text-xs">
+                      {tx.account?.name ?? '—'}
                     </td>
-                    <td className="px-3 py-3.5 text-right font-semibold tabular-nums">
-                      <span
-                        className={
-                          tx.amount > 0 ? "text-[#00FFA3]" : "text-[#FF3366]"
-                        }
-                      >
-                        {tx.amount > 0 ? "+" : ""}
-                        {tx.amount.toLocaleString("ru-RU")} ₽
+                    <td className={`px-3 py-3.5 font-semibold tabular-nums ${tx.transaction_type === 'income' ? 'text-[#00FFA3]' : 'text-[#FF3366]'}`}>
+                      {tx.transaction_type === 'income' ? '+' : '-'}
+                      {Number(tx.amount).toLocaleString('ru-RU')} ₽
+                    </td>
+                    <td className="px-3 py-3.5">
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${tx.transaction_type === 'income'
+                          ? 'bg-[#00FFA3]/10 text-[#00FFA3]'
+                          : tx.transaction_type === 'expense'
+                            ? 'bg-[#FF3366]/10 text-[#FF3366]'
+                            : 'bg-[#00E5FF]/10 text-[#00E5FF]'
+                        }`}>
+                        {tx.transaction_type === 'income' ? 'Доход'
+                          : tx.transaction_type === 'expense' ? 'Расход' : 'Перевод'}
                       </span>
-                    </td>
-                    <td className="px-3 py-3.5 text-right text-default-400 text-xs tabular-nums">
-                      {tx.balanceAfter.toLocaleString("ru-RU")} ₽
-                    </td>
-                    <td className="pr-5 py-3.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setModalTx(tx);
-                        }}
-                        className="text-default-400 hover:text-foreground transition-colors"
-                        aria-label="Открыть детали"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
                     </td>
                   </tr>
                 ))
@@ -360,15 +219,8 @@ export default function TransactionsPage() {
             {PAGE_SIZES.map((s) => (
               <button
                 key={s}
-                onClick={() => {
-                  setPageSize(s);
-                  setPage(1);
-                }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                  pageSize === s
-                    ? "bg-content3 text-foreground"
-                    : "hover:bg-content2 text-default-400"
-                }`}
+                onClick={() => { setPageSize(s); resetPage(); }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${pageSize === s ? 'bg-content3 text-foreground' : 'hover:bg-content2 text-default-400'}`}
               >
                 {s}
               </button>
@@ -376,30 +228,21 @@ export default function TransactionsPage() {
           </div>
           <div className="flex items-center gap-1 text-sm">
             <span className="text-default-400 mr-2">
-              {(page - 1) * pageSize + 1}–
-              {Math.min(page * pageSize, sorted.length)} из {sorted.length}
+              {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} из {total}
             </span>
-            <button
-              disabled={page === 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="p-1.5 rounded-lg hover:bg-content2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
+            <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}
+              className="p-1.5 rounded-lg hover:bg-content2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button
-              disabled={page === totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="p-1.5 rounded-lg hover:bg-content2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
+            <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}
+              className="p-1.5 rounded-lg hover:bg-content2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
 
-      {modalTx && (
-        <TransactionDetailModal tx={modalTx} onClose={() => setModalTx(null)} />
-      )}
+      {modalTx && <TransactionDetailModal tx={modalTx} onClose={() => setModalTx(null)} />}
     </div>
   );
 }

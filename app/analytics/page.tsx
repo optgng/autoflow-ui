@@ -1,298 +1,587 @@
-"use client";
-
-import { useState } from "react";
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { TrendingUp, TrendingDown, BarChart2, RefreshCw, ChevronDown } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  AreaChart,
-  Area,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  mockMonthlyData,
-  mockTopMerchants,
-  mockBalanceData,
-} from "@/lib/mock-data";
-import { ChevronDown, RefreshCw, Bot } from "lucide-react";
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
+} from 'recharts';
+import { apiClient } from '@/lib/api';
+import type { Category, Budget } from '@/lib/types';
 
-const AI_RECS = [
-  "Вы потратили на такси на 23% больше, чем в среднем. Попробуйте использовать метро — это сэкономит до 4 000 ₽/мес.",
-  "Расходы на супермаркеты составляют 8% дохода. Список покупок поможет снизить спонтанные траты на 15%.",
-  "У вас есть 92 450 ₽ свободных средств. Рассмотрите открытие накопительного счёта под 12% годовых — это +11 094 ₽ в год.",
-  "В марте вы тратили больше всего в пятницу и субботу. Планируйте крупные покупки на будни, когда акций больше.",
+// ─── Типы ответов аналитики ───────────────────────────────────────────────────
+interface CategoryStat {
+  category_id: number | null;
+  category_name: string;
+  total: number;
+  count: number;
+  color?: string;
+}
+
+interface MonthlyPoint {
+  month: string;     // YYYY-MM
+  income: number;
+  expense: number;
+  balance: number;
+}
+
+interface BudgetProgress {
+  budget: Budget;
+  spent: number;
+  remaining: number;
+  percent: number;
+}
+
+interface TopMerchant {
+  merchant: string;
+  total: number;
+  count: number;
+}
+
+const CHART_COLORS = [
+  '#00E5FF', '#FF3366', '#00FFA3', '#FFB800',
+  '#0066FF', '#FF6600', '#9B59B6', '#1ABC9C',
 ];
 
-const ACCOUNTS = ["Все счета", "Сбер Зарплатная", "Тинькофф Карта"];
-const CATEGORIES = [
-  "Все категории",
-  "Супермаркеты",
-  "Такси",
-  "Кафе",
-  "ЖКХ",
-  "Развлечения",
-  "Покупки",
-];
+const PERIODS = [
+  { label: '7 дней', days: 7 },
+  { label: '30 дней', days: 30 },
+  { label: '90 дней', days: 90 },
+  { label: '180 дней', days: 180 },
+  { label: 'Год', days: 365 },
+] as const;
+
+// ─── Скелетон ─────────────────────────────────────────────────────────────────
+function Skeleton({ className = '' }: { className?: string }) {
+  return <div className={`shimmer rounded-xl ${className}`} />;
+}
+
+// ─── Вспомогательные ─────────────────────────────────────────────────────────
+function getDateRange(days: number) {
+  const now = new Date();
+  const dateTo = now.toISOString().split('T')[0];
+  const dateFrom = new Date(now.getTime() - days * 86_400_000)
+    .toISOString().split('T')[0];
+  return { dateFrom, dateTo };
+}
+
+function formatMonth(yyyymm: string) {
+  const [y, m] = yyyymm.split('-');
+  const months = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
+    'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+  return `${months[Number(m) - 1]} ${y}`;
+}
 
 export default function AnalyticsPage() {
-  const [account, setAccount] = useState("Все счета");
-  const [category, setCategory] = useState("Все категории");
-  const [loadingRecs, setLoadingRecs] = useState(false);
-  const [recIndex, setRecIndex] = useState(0);
+  const [periodIdx, setPeriodIdx] = useState(1);       // 30 дней по умолчанию
+  const [periodOpen, setPeriodOpen] = useState(false);
 
-  const handleRefreshRecs = async () => {
-    setLoadingRecs(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setRecIndex((i) => (i + 1) % AI_RECS.length);
-    setLoadingRecs(false);
-  };
+  // Данные
+  const [expenseByCategory, setExpenseByCategory] = useState<CategoryStat[]>([]);
+  const [incomeByCategory, setIncomeByCategory] = useState<CategoryStat[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyPoint[]>([]);
+  const [budgetProgress, setBudgetProgress] = useState<BudgetProgress[]>([]);
+  const [topMerchants, setTopMerchants] = useState<TopMerchant[]>([]);
+  const [totals, setTotals] = useState({ income: 0, expense: 0, balance: 0 });
 
-  const maxMerchant = Math.max(...mockTopMerchants.map((m) => m.total));
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const { dateFrom, dateTo } = getDateRange(PERIODS[periodIdx].days);
+
+      const [
+        incomeTotalRes,
+        expenseTotalRes,
+        balanceRes,
+        expenseCatRes,
+        incomeCatRes,
+        budgetsRes,
+      ] = await Promise.all([
+        apiClient.get('/transactions/total', {
+          params: { transaction_type: 'income', date_from: dateFrom, date_to: dateTo },
+        }),
+        apiClient.get('/transactions/total', {
+          params: { transaction_type: 'expense', date_from: dateFrom, date_to: dateTo },
+        }),
+        apiClient.get('/accounts/total-balance'),
+        apiClient.get('/transactions/by-category', {
+          params: { transaction_type: 'expense', date_from: dateFrom, date_to: dateTo },
+        }),
+        apiClient.get('/transactions/by-category', {
+          params: { transaction_type: 'income', date_from: dateFrom, date_to: dateTo },
+        }),
+        apiClient.get('/budgets'),
+      ]);
+
+      const totalIncome = Number(incomeTotalRes.data.total ?? 0);
+      const totalExpense = Number(expenseTotalRes.data.total ?? 0);
+      const totalBalance = Number(balanceRes.data.total_balance ?? 0);
+
+      setTotals({ income: totalIncome, expense: totalExpense, balance: totalBalance });
+
+      // Категории расходов с цветами
+      const expCats: CategoryStat[] = (expenseCatRes.data ?? []).map(
+        (c: any, i: number) => ({
+          ...c,
+          total: Number(c.total),
+          color: CHART_COLORS[i % CHART_COLORS.length],
+        })
+      );
+      setExpenseByCategory(expCats);
+
+      const incCats: CategoryStat[] = (incomeCatRes.data ?? []).map(
+        (c: any, i: number) => ({
+          ...c,
+          total: Number(c.total),
+          color: CHART_COLORS[i % CHART_COLORS.length],
+        })
+      );
+      setIncomeByCategory(incCats);
+
+      // Бюджеты с прогрессом
+      const budgets: Budget[] = budgetsRes.data ?? [];
+      const progressList: BudgetProgress[] = await Promise.all(
+        budgets.map(async (b) => {
+          try {
+            const spentRes = await apiClient.get(`/budgets/${b.id}/progress`);
+            const spent = Number(spentRes.data.spent ?? 0);
+            const limit = Number(b.amount);
+            return {
+              budget: b,
+              spent,
+              remaining: Math.max(0, limit - spent),
+              percent: limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0,
+            };
+          } catch {
+            return { budget: b, spent: 0, remaining: Number(b.amount), percent: 0 };
+          }
+        })
+      );
+      setBudgetProgress(progressList);
+
+      // Помесячная динамика (берём все транзакции и группируем)
+      const allTxRes = await apiClient.get('/transactions', {
+        params: { date_from: dateFrom, date_to: dateTo, limit: 1000 },
+      });
+      const byMonth: Record<string, { income: number; expense: number }> = {};
+      for (const tx of allTxRes.data ?? []) {
+        const month = tx.transaction_date.slice(0, 7); // YYYY-MM
+        if (!byMonth[month]) byMonth[month] = { income: 0, expense: 0 };
+        if (tx.transaction_type === 'income') byMonth[month].income += Number(tx.amount);
+        if (tx.transaction_type === 'expense') byMonth[month].expense += Number(tx.amount);
+      }
+      const monthly: MonthlyPoint[] = Object.entries(byMonth)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, v]) => ({
+          month,
+          income: v.income,
+          expense: v.expense,
+          balance: v.income - v.expense,
+        }));
+      setMonthlyData(monthly);
+
+      // Топ-5 продавцов по расходам (агрегируем из тех же транзакций)
+      const merchantMap: Record<string, { total: number; count: number }> = {};
+      for (const tx of allTxRes.data ?? []) {
+        if (tx.transaction_type !== 'expense' || !tx.merchant) continue;
+        if (!merchantMap[tx.merchant]) merchantMap[tx.merchant] = { total: 0, count: 0 };
+        merchantMap[tx.merchant].total += Number(tx.amount);
+        merchantMap[tx.merchant].count += 1;
+      }
+      const merchants: TopMerchant[] = Object.entries(merchantMap)
+        .map(([merchant, v]) => ({ merchant, ...v }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
+      setTopMerchants(merchants);
+
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Ошибка загрузки аналитики');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [periodIdx]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const maxMerchant = Math.max(...topMerchants.map((m) => m.total), 1);
 
   return (
     <div className="space-y-8">
-      {/* Header */}
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <nav className="text-xs text-default-400 mb-1">
-            <span>Dashboard</span>
-            <span className="mx-1.5">/</span>
+            <span>Dashboard</span><span className="mx-1.5">/</span>
             <span className="text-foreground">Аналитика</span>
           </nav>
-          <h1 className="text-3xl font-bold text-foreground text-balance">Аналитика</h1>
+          <h1 className="text-3xl font-bold text-foreground">Аналитика</h1>
+          <p className="text-default-500 text-sm mt-1">
+            Статистика за период: <span className="text-foreground font-medium">{PERIODS[periodIdx].label}</span>
+          </p>
         </div>
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2">
-          <SelectFilter
-            value={account}
-            options={ACCOUNTS}
-            onChange={setAccount}
-          />
-          <SelectFilter
-            value={category}
-            options={CATEGORIES}
-            onChange={setCategory}
-          />
+
+        {/* Period selector */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={load}
+            disabled={isLoading}
+            className="p-2.5 rounded-xl bg-content2 border border-divider text-default-400 hover:text-foreground hover:bg-content3 transition-colors disabled:opacity-40"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+
+          <div className="relative">
+            <button
+              onClick={() => setPeriodOpen(!periodOpen)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors"
+            >
+              {PERIODS[periodIdx].label}
+              <ChevronDown className="w-4 h-4 text-default-400" />
+            </button>
+            {periodOpen && (
+              <div className="absolute right-0 mt-2 w-40 glass-card rounded-xl py-1 z-50 shadow-lg">
+                {PERIODS.map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setPeriodIdx(i); setPeriodOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${periodIdx === i ? 'text-[#00E5FF] font-medium' : 'text-foreground'
+                      }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Charts row 1: Monthly comparison + top merchants */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Monthly bar chart */}
-        <div className="glass-card rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-5 text-foreground">
-            Сравнение месяцев
-          </h2>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={mockMonthlyData} barCategoryGap="30%" barGap={4}>
+      {/* ── Error ──────────────────────────────────────────────────────────── */}
+      {error && (
+        <div className="p-4 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/30 text-sm text-[#FF3366]">
+          {error}
+        </div>
+      )}
+
+      {/* ── Totals row ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        {isLoading ? (
+          Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-28" />)
+        ) : (
+          <>
+            {[
+              { label: 'Доходы', value: totals.income, color: '#00FFA3', Icon: TrendingUp },
+              { label: 'Расходы', value: totals.expense, color: '#FF3366', Icon: TrendingDown },
+              { label: 'Баланс', value: totals.balance, color: '#00E5FF', Icon: BarChart2 },
+            ].map(({ label, value, color, Icon }) => (
+              <div key={label} className="glass-card rounded-2xl p-5 hover-lift">
+                <div className="flex items-start justify-between mb-3">
+                  <p className="text-xs text-default-500 font-medium uppercase tracking-wide">{label}</p>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: `${color}15`, color }}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {value.toLocaleString('ru-RU')} ₽
+                </p>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* ── Monthly bar chart ──────────────────────────────────────────────── */}
+      <div className="glass-card rounded-2xl p-6">
+        <h2 className="text-base font-semibold mb-5 text-foreground">Помесячная динамика</h2>
+        {isLoading ? (
+          <Skeleton className="h-64" />
+        ) : monthlyData.length === 0 ? (
+          <p className="text-center text-default-400 py-16 text-sm">Нет данных за период</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={monthlyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis
                 dataKey="month"
-                tick={{ fill: "#9CA3AF", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
+                tickFormatter={formatMonth}
+                tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                axisLine={false} tickLine={false}
               />
               <YAxis
-                tick={{ fill: "#9CA3AF", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
+                tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                axisLine={false} tickLine={false}
                 tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 width={36}
               />
               <Tooltip
                 contentStyle={{
-                  background: "#111113",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "12px",
-                  fontSize: 12,
+                  background: '#111113',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 12, fontSize: 12,
                 }}
-                formatter={(value: number) => [`${value.toLocaleString("ru-RU")} ₽`]}
-                labelStyle={{ color: "#9CA3AF" }}
+                formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`}
+                labelFormatter={formatMonth}
               />
-              <Legend
-                wrapperStyle={{ fontSize: 12, paddingTop: "12px" }}
-                formatter={(v) => (v === "income" ? "Доходы" : "Расходы")}
-              />
-              <Bar dataKey="income" fill="#00FFA3" radius={[4, 4, 0, 0]} name="income" />
-              <Bar dataKey="expense" fill="#FF3366" radius={[4, 4, 0, 0]} name="expense" />
+              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
+              <Bar dataKey="income" name="Доходы" fill="#00FFA3" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expense" name="Расходы" fill="#FF3366" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        )}
+      </div>
 
-        {/* Top merchants horizontal bar */}
+      {/* ── Categories row ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        {/* Расходы по категориям */}
         <div className="glass-card rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-5 text-foreground">
-            Топ-8 мест трат
-          </h2>
-          <div className="space-y-3">
-            {mockTopMerchants.map((m, i) => (
-              <div key={i} className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-default-600 truncate pr-2">{m.merchant}</span>
-                  <span className="font-semibold text-foreground tabular-nums flex-shrink-0">
-                    {m.total.toLocaleString("ru-RU")} ₽
-                  </span>
-                </div>
-                <div className="h-2 bg-content3 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#00E5FF] rounded-full transition-all"
-                    style={{ width: `${(m.total / maxMerchant) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Balance dynamics area chart */}
-      <div className="glass-card rounded-2xl p-6">
-        <h2 className="text-base font-semibold mb-5 text-foreground">
-          Динамика баланса
-        </h2>
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={mockBalanceData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#00E5FF" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#00E5FF" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-            <XAxis
-              dataKey="date"
-              tick={{ fill: "#9CA3AF", fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fill: "#9CA3AF", fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-              width={40}
-            />
-            <Tooltip
-              contentStyle={{
-                background: "#111113",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "12px",
-                fontSize: 12,
-              }}
-              formatter={(value: number) => [`${value.toLocaleString("ru-RU")} ₽`, "Баланс"]}
-              labelStyle={{ color: "#9CA3AF" }}
-            />
-            <Area
-              type="monotone"
-              dataKey="balance"
-              stroke="#00E5FF"
-              strokeWidth={2}
-              fill="url(#balanceGradient)"
-              dot={{ r: 3, fill: "#00E5FF" }}
-              activeDot={{ r: 5 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* AI Recommendations */}
-      <div className="glass-card rounded-2xl p-6 border border-[#00E5FF]/20">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#00E5FF]/10 text-[#00E5FF] flex items-center justify-center">
-              <Bot className="w-5 h-5" />
-            </div>
-            <h2 className="text-base font-semibold text-foreground">
-              Персональные рекомендации
-            </h2>
-          </div>
-          <button
-            onClick={handleRefreshRecs}
-            disabled={loadingRecs}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium disabled:opacity-60"
-          >
-            <RefreshCw className={`w-4 h-4 ${loadingRecs ? "animate-spin" : ""}`} />
-            {loadingRecs ? "Анализируем..." : "Обновить"}
-          </button>
-        </div>
-        <div className="space-y-3">
-          {loadingRecs ? (
-            <>
-              <SkeletonLine width="90%" />
-              <SkeletonLine width="75%" />
-              <SkeletonLine width="85%" />
-            </>
+          <h2 className="text-base font-semibold mb-5 text-foreground">Расходы по категориям</h2>
+          {isLoading ? (
+            <Skeleton className="h-52" />
+          ) : expenseByCategory.length === 0 ? (
+            <p className="text-center text-default-400 py-12 text-sm">Нет данных</p>
           ) : (
-            [AI_RECS[recIndex], AI_RECS[(recIndex + 1) % AI_RECS.length]].map(
-              (rec, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 p-4 rounded-xl bg-content2"
-                >
-                  <span className="text-[#00E5FF] text-sm font-bold flex-shrink-0 mt-0.5">
-                    {i + 1}
-                  </span>
-                  <p className="text-sm text-default-600 leading-relaxed">{rec}</p>
-                </div>
-              )
-            )
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <ResponsiveContainer width={160} height={160}>
+                <PieChart>
+                  <Pie
+                    data={expenseByCategory}
+                    dataKey="total"
+                    nameKey="category_name"
+                    cx="50%" cy="50%"
+                    innerRadius={50} outerRadius={75}
+                    paddingAngle={3}
+                  >
+                    {expenseByCategory.map((c, i) => (
+                      <Cell key={i} fill={c.color ?? CHART_COLORS[i % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      background: '#111113',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 12, fontSize: 12,
+                    }}
+                    formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex-1 space-y-2.5 w-full">
+                {expenseByCategory.map((c, i) => {
+                  const total = expenseByCategory.reduce((s, x) => s + x.total, 0);
+                  const pct = total > 0 ? Math.round((c.total / total) * 100) : 0;
+                  return (
+                    <div key={i}>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={{ background: c.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+                          <span className="text-default-500">{c.category_name || 'Прочее'}</span>
+                        </div>
+                        <span className="font-medium text-foreground">
+                          {c.total.toLocaleString('ru-RU')} ₽ · {pct}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${pct}%`,
+                            background: c.color ?? CHART_COLORS[i % CHART_COLORS.length],
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Доходы по категориям */}
+        <div className="glass-card rounded-2xl p-6">
+          <h2 className="text-base font-semibold mb-5 text-foreground">Доходы по категориям</h2>
+          {isLoading ? (
+            <Skeleton className="h-52" />
+          ) : incomeByCategory.length === 0 ? (
+            <p className="text-center text-default-400 py-12 text-sm">Нет данных</p>
+          ) : (
+            <div className="space-y-3">
+              {incomeByCategory.map((c, i) => {
+                const total = incomeByCategory.reduce((s, x) => s + x.total, 0);
+                const pct = total > 0 ? Math.round((c.total / total) * 100) : 0;
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full"
+                          style={{ background: c.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+                        <span className="text-default-500">{c.category_name || 'Прочее'}</span>
+                      </div>
+                      <span className="font-medium text-foreground">
+                        {c.total.toLocaleString('ru-RU')} ₽
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${pct}%`,
+                          background: c.color ?? CHART_COLORS[i % CHART_COLORS.length],
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
-    </div>
-  );
-}
 
-function SelectFilter({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: string[];
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors whitespace-nowrap"
-      >
-        {value}
-        <ChevronDown className="w-3.5 h-3.5 text-default-400" />
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-48 rounded-xl py-1 z-50 shadow-xl border border-divider" style={{ background: "var(--heroui-content2)" }}>
-          {options.map((o) => (
-            <button
-              key={o}
-              onClick={() => {
-                onChange(o);
-                setOpen(false);
-              }}
-              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${
-                o === value ? "text-[#00E5FF] font-medium" : "text-foreground"
-              }`}
-            >
-              {o}
-            </button>
-          ))}
+      {/* ── Budgets progress ───────────────────────────────────────────────── */}
+      <div className="glass-card rounded-2xl p-6">
+        <h2 className="text-base font-semibold mb-5 text-foreground">Исполнение бюджетов</h2>
+        {isLoading ? (
+          <div className="space-y-4">
+            {Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-14" />)}
+          </div>
+        ) : budgetProgress.length === 0 ? (
+          <p className="text-center text-default-400 py-10 text-sm">
+            Бюджеты не настроены.{' '}
+            <a href="/settings" className="text-[#00E5FF] hover:underline">Создать</a>
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {budgetProgress.map(({ budget, spent, remaining, percent }) => {
+              const color = percent >= 90 ? '#FF3366' : percent >= 70 ? '#FFB800' : '#00FFA3';
+              return (
+                <div key={budget.id}>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <div>
+                      <span className="font-medium text-foreground">{budget.name}</span>
+                      {budget.category && (
+                        <span className="ml-2 text-xs text-default-400 px-1.5 py-0.5 bg-content2 rounded">
+                          {budget.category.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="font-semibold tabular-nums" style={{ color }}>
+                        {spent.toLocaleString('ru-RU')} ₽
+                      </span>
+                      <span className="text-default-400 mx-1">/</span>
+                      <span className="text-default-500 tabular-nums">
+                        {Number(budget.amount).toLocaleString('ru-RU')} ₽
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-2 bg-content3 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${percent}%`, background: color }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-xs text-default-400">{percent}% использовано</span>
+                    <span className="text-xs text-default-400">
+                      Остаток: {remaining.toLocaleString('ru-RU')} ₽
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Top merchants ──────────────────────────────────────────────────── */}
+      <div className="glass-card rounded-2xl p-6">
+        <h2 className="text-base font-semibold mb-5 text-foreground">Топ-5 продавцов по расходам</h2>
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-10" />)}
+          </div>
+        ) : topMerchants.length === 0 ? (
+          <p className="text-center text-default-400 py-10 text-sm">Нет данных о продавцах</p>
+        ) : (
+          <div className="space-y-3">
+            {topMerchants.map((m, i) => {
+              const pct = Math.round((m.total / maxMerchant) * 100);
+              return (
+                <div key={i} className="flex items-center gap-4">
+                  <span className="w-5 text-xs text-default-400 text-right flex-shrink-0">
+                    #{i + 1}
+                  </span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="font-medium text-foreground">{m.merchant}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-default-400">{m.count} операций</span>
+                        <span className="font-semibold tabular-nums text-[#FF3366]">
+                          {m.total.toLocaleString('ru-RU')} ₽
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#FF3366] to-[#FF6600]"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Income vs Expense trend line ───────────────────────────────────── */}
+      {!isLoading && monthlyData.length > 1 && (
+        <div className="glass-card rounded-2xl p-6">
+          <h2 className="text-base font-semibold mb-5 text-foreground">Тренд баланса</h2>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={monthlyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <XAxis
+                dataKey="month"
+                tickFormatter={formatMonth}
+                tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                axisLine={false} tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                axisLine={false} tickLine={false}
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                width={36}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: '#111113',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 12, fontSize: 12,
+                }}
+                formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`}
+                labelFormatter={formatMonth}
+              />
+              <Line
+                type="monotone" dataKey="balance" name="Баланс"
+                stroke="#00E5FF" strokeWidth={2}
+                dot={{ r: 4, fill: '#00E5FF' }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       )}
-    </div>
-  );
-}
 
-function SkeletonLine({ width }: { width: string }) {
-  return (
-    <div
-      className="h-5 bg-content2 rounded-lg shimmer"
-      style={{ width }}
-    />
+    </div>
   );
 }
