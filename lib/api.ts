@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL;
 
 // ─── Основной клиент ─────────────────────────────────────────────────────────
 export const apiClient = axios.create({
@@ -112,14 +112,13 @@ function clearAuthAndRedirect() {
   }
 }
 
-// ─── Хелпер для специального запроса логина (form-encoded) ────────────────────
-export async function loginRequest(email: string, password: string) {
-  const formData = new URLSearchParams();
-  formData.append('username', email); // FastAPI OAuth2PasswordRequestForm ждёт 'username'
-  formData.append('password', password);
-
-  const response = await apiClient.post('/auth/login', formData, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+// ─── Хелпер логина ───────────────────────────────────────────────────────────
+export async function loginRequest(login: string, password: string) {
+  const response = await apiClient.post('/auth/login', {
+    login,
+    password,
+    // Content-Type: application/json — уже стоит по умолчанию в apiClient
   });
-  return response.data; // { access_token, refresh_token, token_type }
+  return response.data; // { user: {...}, tokens: { access_token, refresh_token, token_type } }
 }
+

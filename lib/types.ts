@@ -34,21 +34,15 @@ export type AccountType =
 export type Currency = 'RUB' | 'USD' | 'EUR' | 'GBP' | 'CNY' | 'BTC' | 'ETH';
 
 export interface Account {
-  id: number;
-  name: string;
-  account_type: AccountType;
-  currency: Currency;
-  balance: number;
-  bank_name: string | null;
-  account_number: string | null;
-  last_four_digits: string | null;
-  icon: string | null;
-  color: string | null;
-  description: string | null;
-  is_active: boolean;
-  include_in_total: boolean;
-  created_at: string;
-  updated_at: string;
+  id:                number;
+  name:              string;
+  account_type:      'card' | 'bank_account' | 'cash';
+  currency:          string;
+  balance:           string;
+  bank_name?:        string;
+  last_four_digits?: string;
+  is_active:         boolean;
+  include_in_total:  boolean;
 }
 
 export interface AccountCreate {
@@ -69,42 +63,35 @@ export interface AccountUpdate extends Partial<AccountCreate> {
 }
 
 // ─── Category ─────────────────────────────────────────────────────────────────
-export type CategoryType = 'income' | 'expense' | 'transfer';
-
 export interface Category {
-  id: number;
-  name: string;
-  category_type: CategoryType;
-  icon: string | null;
-  color: string | null;
-  is_system: boolean;
-  is_active: boolean;
-  user_id: number | null;
+  id:            number;
+  name:          string;
+  category_type: 'income' | 'expense';
+  is_system:     boolean;
+  icon?:         string | null;
+  color?:        string | null;
 }
 
 // ─── Transaction ──────────────────────────────────────────────────────────────
-export type TransactionType = 'income' | 'expense' | 'transfer';
+export type TransactionType = 'all' | 'income' | 'expense';
 
 export interface Transaction {
-  id: number;
-  user_id: number;
-  account_id: number;
-  category_id: number | null;
-  target_account_id: number | null;
-  transaction_date: string; // ISO: YYYY-MM-DD (бэкенд) vs DD.MM.YYYY (старый UI)
-  amount: number;
-  transaction_type: TransactionType;
-  description: string | null;
-  merchant: string | null;
-  location: string | null;
-  tags: string | null;
-  notes: string | null;
-  receipt_url: string | null;
-  created_at: string;
-  updated_at: string;
-  // Joined relations (если бэкенд отдаёт с selectinload)
-  account?: Account;
-  category?: Category;
+  id:               number;
+  transaction_date: string;       // "2026-03-18"
+  transaction_type: 'income' | 'expense' | 'transfer';
+  amount:           string;       // Decimal → строка
+  merchant:         string | null;
+  description:      string | null;
+  external_id:      string | null;
+  import_source:    string | null;
+  account?: {
+    id:   number;
+    name: string;
+  };
+  category?: {
+    id:   number;
+    name: string;
+  } | null;
 }
 
 export interface TransactionCreate {
@@ -153,13 +140,30 @@ export interface TotalBalanceResponse {
   currency: string;
 }
 
-// ─── UI-совместимые хелперы ───────────────────────────────────────────────────
-// Конвертер дат: бэкенд ISO -> UI DD.MM.YYYY
-export function formatDateUI(iso: string): string {
-  const [y, m, d] = iso.split('-');
-  return `${d}.${m}.${y}`;
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
 }
 
+export interface TokensPayload {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
+export interface LoginResponse {
+  user: User;
+  tokens: TokensPayload;
+}
+
+// ─── UI-совместимые хелперы ───────────────────────────────────────────────────
+// Конвертер дат: бэкенд ISO -> UI DD.MM.YYYY
+export function formatDateUI(isoDate: string): string {
+  if (!isoDate) return '';
+  const [y, m, d] = isoDate.split('-');
+  return `${d}.${m}.${y}`;
+}
 // Конвертер дат: UI DD.MM.YYYY -> бэкенд ISO
 export function formatDateAPI(ddmmyyyy: string): string {
   const [d, m, y] = ddmmyyyy.split('.');

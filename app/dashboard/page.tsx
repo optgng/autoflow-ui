@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import { formatDateUI } from '@/lib/types';
 import type { Transaction, Account, Category } from '@/lib/types';
-import { TransactionDetailModal } from '@/components/dashboard/TransactionDetailModal';
+import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal';
 
 // ─── Типы ответов аналитики ───────────────────────────────────────────────────
 interface DashboardStats {
@@ -38,50 +38,65 @@ export default function DashboardPage() {
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-
+  
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
       try {
         const now = new Date();
-        const dateTo = now.toISOString().split('T')[0];
-        const dateFrom = new Date(now.getTime() - period * 86400000)
+        const dateto = now.toISOString().split('T')[0];
+        const datefrom = new Date(now.getTime() - period * 86400000)
           .toISOString().split('T')[0];
 
-        const [incomeRes, expenseRes, balanceRes, txRes, catsRes] = await Promise.all([
-          apiClient.get('/transactions/total', { params: { transaction_type: 'income', date_from: dateFrom, date_to: dateTo } }),
-          apiClient.get('/transactions/total', { params: { transaction_type: 'expense', date_from: dateFrom, date_to: dateTo } }),
-          apiClient.get('/accounts/total-balance'),
-          apiClient.get('/transactions/recent', { params: { limit: 5 } }),
-          apiClient.get('/transactions/by-category', { params: { date_from: dateFrom, date_to: dateTo } }),
-        ]);
-
-        setStats({
-          totalIncome: Number(incomeRes.data.total ?? 0),
-          totalExpense: Number(expenseRes.data.total ?? 0),
-          totalBalance: Number(balanceRes.data.total_balance ?? 0),
+        // Один запрос — получаем все транзакции за период
+        const txRes = await apiClient.get('/transactions', {
+          params: {
+            datefrom,      // ← без подчёркивания
+            dateto,        // ← без подчёркивания
+            pagesize: 500, // ← без подчёркивания
+            page: 1,
+          },
         });
-        setRecentTx(txRes.data ?? []);
 
-        // Строим данные для pie-чарта по категориям
-        const cats: CategoryStat[] = (catsRes.data ?? []).map(
-          (c: any, i: number) => ({
-            name: c.category_name ?? 'Прочее',
-            value: Number(c.total),
-            color: CHART_COLORS[i % CHART_COLORS.length],
-          })
-        );
+        const allTx = txRes.data.items ?? [];
+
+        // Считаем totals на фронте
+        let totalIncome = 0;
+        let totalExpense = 0;
+        for (const tx of allTx) {
+          if (tx.transaction_type === 'income')  totalIncome  += Number(tx.amount);
+          if (tx.transaction_type === 'expense') totalExpense += Number(tx.amount);
+        }
+
+        // Баланс — реальный эндпоинт существует
+        const balanceRes = await apiClient.get('/accounts/total-balance');
+        const totalBalance = Number(balanceRes.data?.total_balance ?? 0);
+
+        setStats({ totalIncome, totalExpense, totalBalance });
+
+        // Последние 5 транзакций — просто берём из того же списка
+        setRecentTx(allTx.slice(0, 5));
+
+        // Категории расходов — группируем на фронте
+        const catMap: Record<string, number> = {};
+        for (const tx of allTx) {
+          if (tx.transaction_type !== 'expense') continue;
+          const name = tx.category?.name ?? 'Прочее';
+          catMap[name] = (catMap[name] ?? 0) + Number(tx.amount);
+        }
+        const cats = Object.entries(catMap).map(([name, value], i) => ({
+          name,
+          value,
+          color: CHART_COLORS[i % CHART_COLORS.length],
+        }));
         setCategoryData(cats);
 
-        // Строим данные для line-чарта (агрегируем транзакции по дням)
-        const allTxRes = await apiClient.get('/transactions', {
-          params: { date_from: dateFrom, date_to: dateTo, limit: 500 },
-        });
+        // График по дням — группируем на фронте
         const byDate: Record<string, { income: number; expense: number }> = {};
-        for (const tx of allTxRes.data ?? []) {
+        for (const tx of allTx) {
           const d = formatDateUI(tx.transaction_date);
           if (!byDate[d]) byDate[d] = { income: 0, expense: 0 };
-          if (tx.transaction_type === 'income') byDate[d].income += Number(tx.amount);
+          if (tx.transaction_type === 'income')  byDate[d].income  += Number(tx.amount);
           if (tx.transaction_type === 'expense') byDate[d].expense += Number(tx.amount);
         }
         setChartData(
@@ -89,6 +104,7 @@ export default function DashboardPage() {
             .map(([date, v]) => ({ date, ...v }))
             .slice(-14)
         );
+
       } catch (err) {
         console.error('Dashboard load error:', err);
       } finally {
@@ -98,6 +114,7 @@ export default function DashboardPage() {
     load();
   }, [period]);
 
+  
   const saved = stats.totalIncome - stats.totalExpense;
   const savedPct = stats.totalIncome > 0
     ? Math.round((saved / stats.totalIncome) * 100)

@@ -15,6 +15,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { useAuth } from '@/lib/hooks/useAuth';
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -29,10 +30,20 @@ export default function Sidebar() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const { user, logout } = useAuth();
+  useEffect(() => { setMounted(true); }, []);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const initials = mounted
+    ? (user?.full_name ?? user?.username ?? 'AF')
+	.split(' ')
+	.map((w) => w[0])
+	.join('')
+	.toUpperCase()
+	.slice(0, 2)
+    : 'AF';
+    useEffect(() => {
+      setMounted(true);
+    }, []);
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-content1 border-r border-divider flex flex-col z-40">
@@ -96,22 +107,28 @@ export default function Sidebar() {
         )}
 
         {/* User Profile */}
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-content2 hover:bg-content3 transition-colors">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-bold text-black">AF</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">AutoFlow User</p>
-            <p className="text-xs text-default-500 truncate">user@autoflow.dev</p>
-          </div>
-          <button
-            onClick={() => router.push("/login")}
-            aria-label="Выйти"
-            className="text-default-400 hover:text-[#FF3366] transition-colors p-1 flex-shrink-0"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
+	  <div className="flex items-center gap-3 p-3 rounded-xl bg-content2 hover:bg-content3 transition-colors">
+	    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center flex-shrink-0">
+	      <span className="text-xs font-bold text-black" suppressHydrationWarning>
+		{initials}
+	      </span>
+	    </div>
+	    <div className="flex-1 min-w-0">
+	      <p className="text-sm font-medium truncate" suppressHydrationWarning>
+		{mounted ? (user?.full_name ?? user?.username ?? 'AutoFlow User') : ''}
+	      </p>
+	      <p className="text-xs text-default-500 truncate" suppressHydrationWarning>
+		{mounted ? (user?.email ?? '') : ''}
+	      </p>
+	    </div>
+	    <button
+	      onClick={logout}
+	      aria-label="Выйти"
+	      className="text-default-400 hover:text-[#FF3366] transition-colors p-1 flex-shrink-0"
+	    >
+	      <LogOut className="w-4 h-4" />
+	    </button>
+	</div>
       </div>
     </aside>
   );

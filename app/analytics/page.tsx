@@ -6,7 +6,7 @@ import {
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import { apiClient } from '@/lib/api';
-import type { Category, Budget } from '@/lib/types';
+import type { Category } from '@/lib/types';
 
 // ─── Типы ответов аналитики ───────────────────────────────────────────────────
 interface CategoryStat {
@@ -22,13 +22,6 @@ interface MonthlyPoint {
   income: number;
   expense: number;
   balance: number;
-}
-
-interface BudgetProgress {
-  budget: Budget;
-  spent: number;
-  remaining: number;
-  percent: number;
 }
 
 interface TopMerchant {
@@ -79,130 +72,100 @@ export default function AnalyticsPage() {
   const [expenseByCategory, setExpenseByCategory] = useState<CategoryStat[]>([]);
   const [incomeByCategory, setIncomeByCategory] = useState<CategoryStat[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyPoint[]>([]);
-  const [budgetProgress, setBudgetProgress] = useState<BudgetProgress[]>([]);
   const [topMerchants, setTopMerchants] = useState<TopMerchant[]>([]);
   const [totals, setTotals] = useState({ income: 0, expense: 0, balance: 0 });
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-
   const load = useCallback(async () => {
     setIsLoading(true);
-    setError('');
     try {
       const { dateFrom, dateTo } = getDateRange(PERIODS[periodIdx].days);
 
-      const [
-        incomeTotalRes,
-        expenseTotalRes,
-        balanceRes,
-        expenseCatRes,
-        incomeCatRes,
-        budgetsRes,
-      ] = await Promise.all([
-        apiClient.get('/transactions/total', {
-          params: { transaction_type: 'income', date_from: dateFrom, date_to: dateTo },
-        }),
-        apiClient.get('/transactions/total', {
-          params: { transaction_type: 'expense', date_from: dateFrom, date_to: dateTo },
-        }),
-        apiClient.get('/accounts/total-balance'),
-        apiClient.get('/transactions/by-category', {
-          params: { transaction_type: 'expense', date_from: dateFrom, date_to: dateTo },
-        }),
-        apiClient.get('/transactions/by-category', {
-          params: { transaction_type: 'income', date_from: dateFrom, date_to: dateTo },
-        }),
-        apiClient.get('/budgets'),
+      // Один запрос — всё считаем на фронте
+      const [txRes, balanceRes, budgetsRes] = await Promise.all([
+	apiClient.get('/transactions', {
+	  params: {
+	    datefrom: dateFrom,   // ← без подчёркивания
+	    dateto: dateTo,       // ← без подчёркивания
+	    pagesize: 500,
+	    page: 1,
+	  },
+	}),
+	apiClient.get('/accounts/total-balance'),
       ]);
 
-      const totalIncome = Number(incomeTotalRes.data.total ?? 0);
-      const totalExpense = Number(expenseTotalRes.data.total ?? 0);
-      const totalBalance = Number(balanceRes.data.total_balance ?? 0);
+      const allTx = txRes.data.items ?? [];
 
-      setTotals({ income: totalIncome, expense: totalExpense, balance: totalBalance });
-
-      // Категории расходов с цветами
-      const expCats: CategoryStat[] = (expenseCatRes.data ?? []).map(
-        (c: any, i: number) => ({
-          ...c,
-          total: Number(c.total),
-          color: CHART_COLORS[i % CHART_COLORS.length],
-        })
-      );
-      setExpenseByCategory(expCats);
-
-      const incCats: CategoryStat[] = (incomeCatRes.data ?? []).map(
-        (c: any, i: number) => ({
-          ...c,
-          total: Number(c.total),
-          color: CHART_COLORS[i % CHART_COLORS.length],
-        })
-      );
-      setIncomeByCategory(incCats);
-
-      // Бюджеты с прогрессом
-      const budgets: Budget[] = budgetsRes.data ?? [];
-      const progressList: BudgetProgress[] = await Promise.all(
-        budgets.map(async (b) => {
-          try {
-            const spentRes = await apiClient.get(`/budgets/${b.id}/progress`);
-            const spent = Number(spentRes.data.spent ?? 0);
-            const limit = Number(b.amount);
-            return {
-              budget: b,
-              spent,
-              remaining: Math.max(0, limit - spent),
-              percent: limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0,
-            };
-          } catch {
-            return { budget: b, spent: 0, remaining: Number(b.amount), percent: 0 };
-          }
-        })
-      );
-      setBudgetProgress(progressList);
-
-      // Помесячная динамика (берём все транзакции и группируем)
-      const allTxRes = await apiClient.get('/transactions', {
-        params: { date_from: dateFrom, date_to: dateTo, limit: 1000 },
+      // Totals
+      let income = 0, expense = 0;
+      for (const tx of allTx) {
+	if (tx.transaction_type === 'income')  income  += Number(tx.amount);
+	if (tx.transaction_type === 'expense') expense += Number(tx.amount);
+      }
+      setTotals({
+	income,
+	expense,
+	balance: Number(balanceRes.data?.total_balance ?? 0),
       });
-      const byMonth: Record<string, { income: number; expense: number }> = {};
-      for (const tx of allTxRes.data ?? []) {
-        const month = tx.transaction_date.slice(0, 7); // YYYY-MM
-        if (!byMonth[month]) byMonth[month] = { income: 0, expense: 0 };
-        if (tx.transaction_type === 'income') byMonth[month].income += Number(tx.amount);
-        if (tx.transaction_type === 'expense') byMonth[month].expense += Number(tx.amount);
-      }
-      const monthly: MonthlyPoint[] = Object.entries(byMonth)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([month, v]) => ({
-          month,
-          income: v.income,
-          expense: v.expense,
-          balance: v.income - v.expense,
-        }));
-      setMonthlyData(monthly);
 
-      // Топ-5 продавцов по расходам (агрегируем из тех же транзакций)
-      const merchantMap: Record<string, { total: number; count: number }> = {};
-      for (const tx of allTxRes.data ?? []) {
-        if (tx.transaction_type !== 'expense' || !tx.merchant) continue;
-        if (!merchantMap[tx.merchant]) merchantMap[tx.merchant] = { total: 0, count: 0 };
-        merchantMap[tx.merchant].total += Number(tx.amount);
-        merchantMap[tx.merchant].count += 1;
+      // Категории расходов
+      const expCatMap: Record<string, number> = {};
+      const incCatMap: Record<string, number> = {};
+      for (const tx of allTx) {
+	const name = tx.category?.name ?? 'Прочее';
+	if (tx.transaction_type === 'expense') expCatMap[name] = (expCatMap[name] ?? 0) + Number(tx.amount);
+	if (tx.transaction_type === 'income')  incCatMap[name] = (incCatMap[name] ?? 0) + Number(tx.amount);
       }
-      const merchants: TopMerchant[] = Object.entries(merchantMap)
-        .map(([merchant, v]) => ({ merchant, ...v }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5);
-      setTopMerchants(merchants);
+      setExpenseByCategory(
+	Object.entries(expCatMap).map(([name, total], i) => ({
+	  category_name: name, total,
+	  color: CHART_COLORS[i % CHART_COLORS.length],
+	}))
+      );
+      setIncomeByCategory(
+	Object.entries(incCatMap).map(([name, total], i) => ({
+	  category_name: name, total,
+	  color: CHART_COLORS[i % CHART_COLORS.length],
+	}))
+      );
+
+      // Помесячно
+      const byMonth: Record<string, { income: number; expense: number }> = {};
+      for (const tx of allTx) {
+	const month = tx.transaction_date.slice(0, 7);
+	if (!byMonth[month]) byMonth[month] = { income: 0, expense: 0 };
+	if (tx.transaction_type === 'income')  byMonth[month].income  += Number(tx.amount);
+	if (tx.transaction_type === 'expense') byMonth[month].expense += Number(tx.amount);
+      }
+      setMonthlyData(
+	Object.entries(byMonth)
+	  .sort(([a], [b]) => a.localeCompare(b))
+	  .map(([month, v]) => ({ month, ...v, balance: v.income - v.expense }))
+      );
+
+      // Топ продавцов
+      const merchantMap: Record<string, { total: number; count: number }> = {};
+      for (const tx of allTx) {
+	if (tx.transaction_type !== 'expense' || !tx.merchant) continue;
+	if (!merchantMap[tx.merchant]) merchantMap[tx.merchant] = { total: 0, count: 0 };
+	merchantMap[tx.merchant].total += Number(tx.amount);
+	merchantMap[tx.merchant].count += 1;
+      }
+      setTopMerchants(
+	Object.entries(merchantMap)
+	  .map(([merchant, v]) => ({ merchant, ...v }))
+	  .sort((a, b) => b.total - a.total)
+	  .slice(0, 5)
+      );
 
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Ошибка загрузки аналитики');
+      setError(err.response?.data?.detail || 'Ошибка загрузки');
     } finally {
       setIsLoading(false);
     }
   }, [periodIdx]);
+  
 
   useEffect(() => { load(); }, [load]);
 
@@ -445,61 +408,6 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* ── Budgets progress ───────────────────────────────────────────────── */}
-      <div className="glass-card rounded-2xl p-6">
-        <h2 className="text-base font-semibold mb-5 text-foreground">Исполнение бюджетов</h2>
-        {isLoading ? (
-          <div className="space-y-4">
-            {Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-14" />)}
-          </div>
-        ) : budgetProgress.length === 0 ? (
-          <p className="text-center text-default-400 py-10 text-sm">
-            Бюджеты не настроены.{' '}
-            <a href="/settings" className="text-[#00E5FF] hover:underline">Создать</a>
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {budgetProgress.map(({ budget, spent, remaining, percent }) => {
-              const color = percent >= 90 ? '#FF3366' : percent >= 70 ? '#FFB800' : '#00FFA3';
-              return (
-                <div key={budget.id}>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <div>
-                      <span className="font-medium text-foreground">{budget.name}</span>
-                      {budget.category && (
-                        <span className="ml-2 text-xs text-default-400 px-1.5 py-0.5 bg-content2 rounded">
-                          {budget.category.name}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <span className="font-semibold tabular-nums" style={{ color }}>
-                        {spent.toLocaleString('ru-RU')} ₽
-                      </span>
-                      <span className="text-default-400 mx-1">/</span>
-                      <span className="text-default-500 tabular-nums">
-                        {Number(budget.amount).toLocaleString('ru-RU')} ₽
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-2 bg-content3 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${percent}%`, background: color }}
-                    />
-                  </div>
-                  <div className="flex justify-between mt-1">
-                    <span className="text-xs text-default-400">{percent}% использовано</span>
-                    <span className="text-xs text-default-400">
-                      Остаток: {remaining.toLocaleString('ru-RU')} ₽
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
       {/* ── Top merchants ──────────────────────────────────────────────────── */}
       <div className="glass-card rounded-2xl p-6">

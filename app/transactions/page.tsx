@@ -1,53 +1,50 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { Search, X, ChevronUp, ChevronDown, ChevronsUpDown, FileSearch, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, X, ChevronUp, ChevronDown, FileSearch, ChevronLeft, ChevronRight } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { formatDateUI } from '@/lib/types';
 import type { Transaction, Category, TransactionType } from '@/lib/types';
-import { TransactionDetailModal } from '@/components/dashboard/TransactionDetailModal';
+import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal';
 
 const PAGE_SIZES = [10, 25, 50] as const;
 type SortDir = 'asc' | 'desc';
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [categories, setCategories]     = useState<Category[]>([]);
+  const [total, setTotal]               = useState(0);
+  const [totalPages, setTotalPages]     = useState(1);   // ← отдельный стейт
+  const [isLoading, setIsLoading]       = useState(true);
 
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | TransactionType>('all');
+  const [search, setSearch]               = useState('');
+  const [typeFilter, setTypeFilter]       = useState<'all' | TransactionType>('all');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
-  const [page, setPage] = useState(1);
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [modalTx, setModalTx] = useState<Transaction | null>(null);
+  const [pageSize, setPageSize]           = useState<(typeof PAGE_SIZES)[number]>(10);
+  const [page, setPage]                   = useState(1);  // ← отдельный стейт
+  const [sortDir, setSortDir]             = useState<SortDir>('desc');
+  const [modalTx, setModalTx]             = useState<Transaction | null>(null);
 
   // Загрузка категорий (единожды)
   useEffect(() => {
     apiClient.get('/categories').then((r) => setCategories(r.data ?? []));
   }, []);
 
-  // Загрузка транзакций при изменении фильтров/страницы
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: Record<string, string | number> = {
-        skip: (page - 1) * pageSize,
-        limit: pageSize,
+        page,
+        page_size: pageSize,
       };
       if (typeFilter !== 'all') params.transaction_type = typeFilter;
-      if (categoryFilter) params.category_id = categoryFilter;
-      if (search) params.search = search;
+      if (categoryFilter)       params.categoryid      = categoryFilter;
+      if (search)               params.search          = search;
 
       const res = await apiClient.get('/transactions', { params });
-      // Бэкенд возвращает массив; total берём из заголовка X-Total-Count если есть
-      const data: Transaction[] = res.data ?? [];
-      const totalCount = res.headers?.['x-total-count']
-        ? Number(res.headers['x-total-count'])
-        : data.length;
-      setTransactions(data);
-      setTotal(totalCount >= pageSize ? totalCount : (page - 1) * pageSize + data.length);
+
+      setTransactions(res.data.items    ?? []);
+      setTotal(res.data.total           ?? 0);
+      setTotalPages(res.data.totalpages ?? 1);  // ← сохраняем в стейт здесь, где res доступен
     } finally {
       setIsLoading(false);
     }
@@ -55,10 +52,7 @@ export default function TransactionsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Сброс страницы при смене фильтра
   const resetPage = () => setPage(1);
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const sorted = [...transactions].sort((a, b) => {
     const av = new Date(a.transaction_date).getTime();
@@ -98,7 +92,11 @@ export default function TransactionsPage() {
               <button
                 key={t}
                 onClick={() => { setTypeFilter(t); resetPage(); }}
-                className={`px-4 text-sm font-medium transition-colors ${typeFilter === t ? 'bg-content3 text-foreground' : 'bg-content2 text-default-400 hover:bg-content3'}`}
+                className={`px-4 text-sm font-medium transition-colors ${
+                  typeFilter === t
+                    ? 'bg-content3 text-foreground'
+                    : 'bg-content2 text-default-400 hover:bg-content3'
+                }`}
               >
                 {t === 'all' ? 'Все' : t === 'income' ? 'Доходы' : 'Расходы'}
               </button>
@@ -190,17 +188,20 @@ export default function TransactionsPage() {
                     <td className="px-3 py-3.5 text-default-400 text-xs">
                       {tx.account?.name ?? '—'}
                     </td>
-                    <td className={`px-3 py-3.5 font-semibold tabular-nums ${tx.transaction_type === 'income' ? 'text-[#00FFA3]' : 'text-[#FF3366]'}`}>
+                    <td className={`px-3 py-3.5 font-semibold tabular-nums ${
+                      tx.transaction_type === 'income' ? 'text-[#00FFA3]' : 'text-[#FF3366]'
+                    }`}>
                       {tx.transaction_type === 'income' ? '+' : '-'}
                       {Number(tx.amount).toLocaleString('ru-RU')} ₽
                     </td>
                     <td className="px-3 py-3.5">
-                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${tx.transaction_type === 'income'
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                        tx.transaction_type === 'income'
                           ? 'bg-[#00FFA3]/10 text-[#00FFA3]'
                           : tx.transaction_type === 'expense'
-                            ? 'bg-[#FF3366]/10 text-[#FF3366]'
-                            : 'bg-[#00E5FF]/10 text-[#00E5FF]'
-                        }`}>
+                          ? 'bg-[#FF3366]/10 text-[#FF3366]'
+                          : 'bg-[#00E5FF]/10 text-[#00E5FF]'
+                      }`}>
                         {tx.transaction_type === 'income' ? 'Доход'
                           : tx.transaction_type === 'expense' ? 'Расход' : 'Перевод'}
                       </span>
@@ -220,7 +221,9 @@ export default function TransactionsPage() {
               <button
                 key={s}
                 onClick={() => { setPageSize(s); resetPage(); }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${pageSize === s ? 'bg-content3 text-foreground' : 'hover:bg-content2 text-default-400'}`}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  pageSize === s ? 'bg-content3 text-foreground' : 'hover:bg-content2 text-default-400'
+                }`}
               >
                 {s}
               </button>
@@ -230,12 +233,18 @@ export default function TransactionsPage() {
             <span className="text-default-400 mr-2">
               {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} из {total}
             </span>
-            <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}
-              className="p-1.5 rounded-lg hover:bg-content2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="p-1.5 rounded-lg hover:bg-content2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}
-              className="p-1.5 rounded-lg hover:bg-content2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="p-1.5 rounded-lg hover:bg-content2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -246,3 +255,4 @@ export default function TransactionsPage() {
     </div>
   );
 }
+

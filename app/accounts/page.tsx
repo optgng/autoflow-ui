@@ -1,315 +1,463 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, X, Building2, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import {
+  Plus, Pencil, CreditCard, Landmark, Wallet,
+  X, Check, RefreshCw, AlertCircle, Trash2,  // ← добавить Trash2
+} from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import type { Account, AccountCreate, AccountUpdate, AccountType, Currency } from '@/lib/types';
 
-const ACCOUNT_TYPES: { value: AccountType; label: string }[] = [
-  { value: 'card', label: 'Карта' },
-  { value: 'bank_account', label: 'Банковский счёт' },
-  { value: 'cash', label: 'Наличные' },
-  { value: 'investment', label: 'Инвестиции' },
-  { value: 'crypto', label: 'Крипто' },
-  { value: 'other', label: 'Другое' },
-];
-const CURRENCIES: Currency[] = ['RUB', 'USD', 'EUR', 'GBP', 'CNY'];
+// ─── Типы ────────────────────────────────────────────────────────────────────
 
-const emptyForm: AccountCreate = {
-  name: '', account_type: 'card', currency: 'RUB', balance: 0,
-  bank_name: '', account_number: '', include_in_total: true,
+// Точное соответствие AccountType из схемы бэкенда
+type AccountType = 'card' | 'bank_account' | 'cash';
+
+// Типы, которые можно переключать между собой
+type BankAccountType = 'card' | 'bank_account';
+
+interface Account {
+  id:                number;
+  name:              string;
+  account_type:      AccountType;
+  currency:          string;
+  balance:           string;   // Decimal с бэкенда приходит как строка
+  bank_name?:        string;
+  last_four_digits?: string;
+  is_active:         boolean;
+  include_in_total:  boolean;
+}
+
+// ─── Константы ───────────────────────────────────────────────────────────────
+
+const TYPE_LABELS: Record<AccountType, string> = {
+  card:         'Карта',
+  bank_account: 'Счёт',
+  cash:         'Наличные',
 };
 
+const TYPE_ICONS: Record<AccountType, React.ReactNode> = {
+  card:         <CreditCard className="w-5 h-5" />,
+  bank_account: <Landmark   className="w-5 h-5" />,
+  cash:         <Wallet     className="w-5 h-5" />,
+};
+
+const CURRENCIES = ['RUB', 'USD', 'EUR', 'GBP', 'CNY'] as const;
+
+// ─── Хелперы ─────────────────────────────────────────────────────────────────
+
+/** Безопасно форматирует баланс — Decimal с бэкенда приходит как строка */
+function formatBalance(balance: string, currency: string): string {
+  const num = parseFloat(balance) || 0;
+  return num.toLocaleString('ru-RU', { style: 'currency', currency });
+}
+
+// ─── Компонент ───────────────────────────────────────────────────────────────
+
 export default function AccountsPage() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [accounts,     setAccounts]     = useState<Account[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [editId,       setEditId]       = useState<number | null>(null);
+  const [showCreate,   setShowCreate]   = useState(false);
+  const [error,        setError]        = useState('');
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<AccountCreate>(emptyForm);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  // Форма редактирования
+  const [editName,     setEditName]     = useState('');
+  const [editBank,     setEditBank]     = useState('');
+  const [editType,     setEditType]     = useState<BankAccountType>('card');
+  const [editCurrency, setEditCurrency] = useState('RUB');
+  const [saving,       setSaving]       = useState(false);
+  const [editBalance, setEditBalance] = useState('');
 
-  const loadAccounts = useCallback(async () => {
-    setIsLoading(true);
+  // Форма создания наличных
+  const [cashName,     setCashName]     = useState('');
+  const [cashCurrency, setCashCurrency] = useState('RUB');
+  const [creating,     setCreating]     = useState(false);
+
+  // Удаление счетов
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => { fetchAccounts(); }, []);
+
+  const fetchAccounts = async () => {
+    setLoading(true);
     try {
       const res = await apiClient.get('/accounts');
-      setAccounts(res.data ?? []);
+      setAccounts(res.data);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, []);
+  };
 
-  useEffect(() => { loadAccounts(); }, [loadAccounts]);
-
-  const openAdd = () => { setEditingId(null); setForm(emptyForm); setError(''); setModalOpen(true); };
   const openEdit = (acc: Account) => {
-    setEditingId(acc.id);
-    setForm({
-      name: acc.name,
-      account_type: acc.account_type,
-      currency: acc.currency,
-      balance: acc.balance,
-      bank_name: acc.bank_name ?? '',
-      account_number: acc.account_number ?? '',
-      include_in_total: acc.include_in_total,
-    });
+    setEditId(acc.id);
+    setEditName(acc.name);
+    setEditBank(acc.bank_name ?? '');
+    // Для cash editType не используется, ставим заглушку
+    setEditType(acc.account_type !== 'cash' ? acc.account_type : 'card');
+    setEditCurrency(acc.currency);
+    setEditBalance(acc.balance);
     setError('');
-    setModalOpen(true);
   };
 
-  const handleSave = async () => {
-    if (!form.name.trim()) { setError('Название обязательно'); return; }
-    setIsSaving(true);
+  const handleSave = async (acc: Account) => {
+    setSaving(true);
     setError('');
     try {
-      if (editingId !== null) {
-        const update: AccountUpdate = {
-          name: form.name,
-          account_type: form.account_type,
-          currency: form.currency,
-          bank_name: form.bank_name || undefined,
-          account_number: form.account_number || undefined,
-          include_in_total: form.include_in_total,
-        };
-        await apiClient.patch(`/accounts/${editingId}`, update);
-      } else {
-        await apiClient.post('/accounts', form);
+      const payload: Record<string, unknown> = {
+        name:     editName     || undefined,
+        currency: editCurrency || undefined,
+      };
+      // bank_name и account_type — только для card/bank_account
+      if (acc.account_type !== 'cash') {
+        payload.bank_name    = editBank || undefined;
+        payload.account_type = editType; // 'card' | 'bank_account'
       }
-      await loadAccounts();
-      setModalOpen(false);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Ошибка сохранения');
+      if (acc.account_type === 'cash') {
+  	const bal = parseFloat(editBalance);
+  	if (!isNaN(bal)) payload.balance = String(bal);
+      }
+      const res = await apiClient.patch(`/accounts/${acc.id}`, payload);
+      setAccounts(prev => prev.map(a => a.id === acc.id ? res.data : a));
+      setEditId(null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      setError(msg || 'Ошибка сохранения');
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleCreate = async () => {
+    setCreating(true);
+    setError('');
     try {
-      await apiClient.delete(`/accounts/${id}`);
-      await loadAccounts();
-    } catch (err: any) {
-      console.error(err.response?.data?.detail);
+      const res = await apiClient.post('/accounts', {
+        name:         cashName,
+        account_type: 'cash',
+        currency:     cashCurrency,
+      });
+      setAccounts(prev => [...prev, res.data]);
+      setShowCreate(false);
+      setCashName('');
+      setCashCurrency('RUB');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      setError(msg || 'Ошибка создания');
     } finally {
-      setDeleteConfirm(null);
+      setCreating(false);
     }
   };
 
-  const toggleActive = async (acc: Account) => {
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    setError('');
     try {
-      await apiClient.patch(`/accounts/${acc.id}`, { is_active: !acc.is_active });
-      await loadAccounts();
-    } catch (err) {
-      console.error(err);
+      await apiClient.delete(`/accounts/${deleteId}`);
+      // Soft delete для card/bank_account — бэкенд деактивирует, не удаляет
+      // Убираем из списка в обоих случаях
+      setAccounts(prev => prev.filter(a => a.id !== deleteId));
+      setDeleteId(null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })
+	?.response?.data?.detail;
+      setError(msg || 'Ошибка удаления');
+    } finally {
+      setDeleting(false);
     }
   };
+return (
+  <div className="space-y-6 max-w-3xl">
 
-  const totalBalance = accounts
-    .filter((a) => a.is_active && a.include_in_total)
-    .reduce((s, a) => s + Number(a.balance), 0);
-
-  const maskNumber = (n: string | null) =>
-    n && n.length > 4 ? `${n.slice(0, 4)} •••• ${n.slice(-4)}` : n ?? '—';
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <nav className="text-xs text-default-400 mb-1">
-            <span>Dashboard</span><span className="mx-1.5">/</span><span className="text-foreground">Счета</span>
-          </nav>
-          <h1 className="text-3xl font-bold text-foreground">Счета и карты</h1>
-          <p className="text-sm text-default-500 mt-1">
-            Общий баланс: <span className="font-semibold text-[#00E5FF]">{totalBalance.toLocaleString('ru-RU')} ₽</span>
-          </p>
-        </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-opacity shadow-glow"
-        >
-          <Plus className="w-4 h-4" /> Добавить счёт
-        </button>
+    {/* Header */}
+    <div className="flex items-center justify-between">
+      <div>
+        <nav className="text-xs text-default-400 mb-1">
+          <span>Dashboard</span><span className="mx-1.5">/</span>
+          <span className="text-foreground">Счета</span>
+        </nav>
+        <h1 className="text-3xl font-bold text-foreground">Счета</h1>
       </div>
+      <button
+        onClick={() => { setShowCreate(true); setError(''); }}
+        className="flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-all"
+      >
+        <Plus className="w-4 h-4" /> Добавить наличные
+      </button>
+    </div>
 
-      {/* Cards */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {Array(3).fill(0).map((_, i) => <div key={i} className="glass-card rounded-2xl h-48 shimmer" />)}
-        </div>
-      ) : accounts.length === 0 ? (
-        <div className="glass-card rounded-2xl p-12 text-center">
-          <p className="text-default-400 mb-4">У вас пока нет счетов</p>
-          <button onClick={openAdd} className="px-4 py-2 rounded-xl bg-[#00E5FF]/10 text-[#00E5FF] text-sm font-medium">
-            Добавить первый счёт
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {accounts.map((acc) => (
-            <div
-              key={acc.id}
-              className={`glass-card rounded-2xl p-5 hover-lift transition-all ${!acc.is_active ? 'opacity-60' : ''}`}
-            >
-              <div className="h-1.5 rounded-full bg-gradient-to-r from-[#00E5FF] to-[#0066FF] mb-5" />
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground text-base truncate">{acc.name}</p>
-                  <p className="text-xs text-default-400 mt-0.5 font-mono">{maskNumber(acc.account_number)}</p>
-                </div>
-                <div className="flex items-center gap-1 ml-2">
-                  <button
-                    onClick={() => openEdit(acc)}
-                    className="p-1.5 rounded-lg text-default-400 hover:text-foreground hover:bg-content2 transition-colors"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirm(acc.id)}
-                    className="p-1.5 rounded-lg text-default-400 hover:text-[#FF3366] hover:bg-[#FF3366]/10 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+    {/* Подсказка */}
+    <div className="flex items-start gap-3 p-4 rounded-xl bg-[#00E5FF]/5 border border-[#00E5FF]/20 text-sm text-default-400">
+      <AlertCircle className="w-4 h-4 text-[#00E5FF] flex-shrink-0 mt-0.5" />
+      Банковские карты и счета добавляются автоматически при загрузке выписки
+      через Telegram бота. Вручную можно добавить только счёт наличных.
+    </div>
 
-              <div className="flex items-center gap-2 mb-4">
-                <Building2 className="w-3.5 h-3.5 text-default-400" />
-                <span className="text-xs text-default-500">{acc.bank_name ?? '—'}</span>
-                <span className="text-xs text-default-400 ml-1 px-1.5 py-0.5 rounded bg-content2">
-                  {acc.currency}
-                </span>
-              </div>
-
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-xs text-default-400 mb-0.5">Баланс</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {Number(acc.balance).toLocaleString('ru-RU')} ₽
-                  </p>
+    {/* Список */}
+    {loading ? (
+      <div className="flex justify-center py-12">
+        <RefreshCw className="w-6 h-6 animate-spin text-default-400" />
+      </div>
+    ) : accounts.length === 0 ? (
+      <div className="glass-card rounded-2xl p-12 text-center text-default-400">
+        <Wallet className="w-12 h-12 mx-auto mb-3 opacity-30" />
+        <p className="font-medium">Счета не найдены</p>
+        <p className="text-sm mt-1">
+          Загрузите выписку через Telegram бота — счета появятся автоматически
+        </p>
+      </div>
+    ) : (
+      <div className="space-y-3">
+        {accounts.map(acc => (
+          <div key={acc.id} className="glass-card rounded-2xl p-5">
+            {editId === acc.id ? (
+              /* ── Режим редактирования ── */
+              <div className="space-y-4">
+                {error && (
+                  <div className="flex items-center gap-2 text-sm text-[#FF3366]">
+                    <AlertCircle className="w-4 h-4" /> {error}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-default-400">Название</label>
+                    <input
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      className="input-field h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-default-400">Валюта</label>
+                    <select
+                      value={editCurrency}
+                      onChange={e => setEditCurrency(e.target.value)}
+                      className="input-field h-9 text-sm"
+                    >
+                      {CURRENCIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+		  {acc.account_type === 'cash' && (
+		    <div className="space-y-1.5">
+		      <label className="text-xs text-default-400">Баланс</label>
+		      <input
+			type="number"
+			value={editBalance}
+			onChange={e => setEditBalance(e.target.value)}
+			placeholder="0"
+			className="input-field h-9 text-sm"
+		      />
+		    </div>
+		  )}
+                  {acc.account_type !== 'cash' && (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-default-400">Банк</label>
+                        <input
+                          value={editBank}
+                          onChange={e => setEditBank(e.target.value)}
+                          placeholder="Сбербанк"
+                          className="input-field h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-default-400">Тип</label>
+                        <select
+                          value={editType}
+                          onChange={e => setEditType(e.target.value as BankAccountType)}
+                          className="input-field h-9 text-sm"
+                        >
+                          <option value="card">Карта</option>
+                          <option value="bank_account">Счёт</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-medium ${acc.is_active ? 'text-[#00FFA3]' : 'text-default-400'}`}>
-                    {acc.is_active ? 'Активен' : 'Неактивен'}
-                  </span>
-                  <Toggle checked={acc.is_active} onChange={() => toggleActive(acc)} />
+                  <button
+                    onClick={() => handleSave(acc)}
+                    disabled={saving}
+                    className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold disabled:opacity-60"
+                  >
+                    {saving
+                      ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      : <Check className="w-3.5 h-3.5" />
+                    }
+                    Сохранить
+                  </button>
+                  <button
+                    onClick={() => setEditId(null)}
+                    className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-content2 border border-divider text-sm text-default-400 hover:text-foreground"
+                  >
+                    <X className="w-3.5 h-3.5" /> Отмена
+                  </button>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ) : (
+              /* ── Режим просмотра ── */
+              <div className="flex items-center justify-between">
+                {/* Левая часть — иконка + текст */}
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-xl bg-[#00E5FF]/10 flex items-center justify-center text-[#00E5FF]">
+                    {TYPE_ICONS[acc.account_type]}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-foreground">{acc.name}</p>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-content2 text-default-400">
+                        {TYPE_LABELS[acc.account_type]}
+                      </span>
+                      {acc.bank_name && (
+                        <span className="text-xs text-default-400">{acc.bank_name}</span>
+                      )}
+                    </div>
+                    {acc.last_four_digits ? (
+                      <p className="text-xs text-default-400 mt-0.5">
+                        •••• {acc.last_four_digits} · {acc.currency}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-default-400 mt-0.5">{acc.currency}</p>
+                    )}
+                  </div>
+                </div> {/* ← конец левой части */}
 
-      {/* Add/Edit Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative glass-card rounded-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setModalOpen(false)} className="absolute top-4 right-4 text-default-400 hover:text-foreground p-1 rounded-lg hover:bg-content2">
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-lg font-bold mb-5">{editingId !== null ? 'Редактировать счёт' : 'Новый счёт'}</h2>
-
-            {error && (
-              <div className="mb-4 p-3 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/30 text-sm text-[#FF3366]">
-                {error}
+                {/* Правая часть — баланс + кнопки */}
+                <div className="flex items-center gap-4">
+                  <p className="text-lg font-bold text-foreground">
+                    {formatBalance(acc.balance, acc.currency)}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openEdit(acc)}
+                      className="p-2 rounded-lg text-default-400 hover:text-foreground hover:bg-content2 transition-all"
+                      aria-label="Редактировать"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => { setDeleteId(acc.id); setError(''); }}
+                      className="p-2 rounded-lg text-default-400 hover:text-[#FF3366] hover:bg-[#FF3366]/10 transition-all"
+                      aria-label="Удалить"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div> {/* ← конец правой части */}
               </div>
             )}
+          </div>
+        ))}
+      </div>
+    )}
 
-            <div className="space-y-4">
-              <Field label="Название">
-                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Моя карта" className="input-field" />
-              </Field>
-              <Field label="Тип счёта">
-                <select value={form.account_type}
-                  onChange={(e) => setForm({ ...form, account_type: e.target.value as AccountType })}
-                  className="input-field">
-                  {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </Field>
-              <Field label="Номер счёта / карты">
-                <input value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })}
-                  placeholder="4081 7810 9000 1234" className="input-field font-mono" />
-              </Field>
-              <Field label="Банк">
-                <input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
-                  placeholder="Сбербанк" className="input-field" />
-              </Field>
-              <Field label="Валюта">
-                <select value={form.currency}
-                  onChange={(e) => setForm({ ...form, currency: e.target.value as Currency })}
-                  className="input-field">
-                  {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </Field>
-              {editingId === null && (
-                <Field label="Начальный баланс">
-                  <input type="number" value={form.balance} min={0}
-                    onChange={(e) => setForm({ ...form, balance: Number(e.target.value) })}
-                    className="input-field" />
-                </Field>
+    {/* ── Модал создания наличных ── */}
+    {showCreate && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div className="glass-card rounded-2xl p-6 w-full max-w-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-foreground">Добавить наличные</h2>
+            <button onClick={() => setShowCreate(false)} className="text-default-400 hover:text-foreground">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          {error && (
+            <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4" /> {error}
+            </p>
+          )}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-default-600">Название</label>
+              <input
+                value={cashName}
+                onChange={e => setCashName(e.target.value)}
+                placeholder="Кошелёк"
+                className="input-field"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-default-600">Валюта</label>
+              <select
+                value={cashCurrency}
+                onChange={e => setCashCurrency(e.target.value)}
+                className="input-field"
+              >
+                <option value="RUB">RUB — Российский рубль</option>
+                <option value="USD">USD — Доллар США</option>
+                <option value="EUR">EUR — Евро</option>
+                <option value="GBP">GBP — Фунт стерлингов</option>
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={handleCreate}
+            disabled={creating || !cashName.trim()}
+            className="w-full h-11 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Создать счёт'}
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* ── Модал подтверждения удаления ── */}
+    {deleteId !== null && (() => {
+      const acc = accounts.find(a => a.id === deleteId);
+      const isBankAcc = acc?.account_type !== 'cash';
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="glass-card rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-foreground">Удалить счёт?</h2>
+              <button onClick={() => setDeleteId(null)} className="text-default-400 hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {error && (
+              <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4" /> {error}
+              </p>
+            )}
+            <div className="p-4 rounded-xl bg-content2 space-y-1">
+              <p className="font-medium text-foreground">{acc?.name}</p>
+              {acc?.last_four_digits && (
+                <p className="text-xs text-default-400">•••• {acc.last_four_digits}</p>
               )}
-              <div className="flex items-center justify-between py-3 border-t border-divider">
-                <span className="text-sm font-medium">Учитывать в общем балансе</span>
-                <Toggle checked={form.include_in_total ?? true}
-                  onChange={() => setForm({ ...form, include_in_total: !form.include_in_total })} />
-              </div>
             </div>
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setModalOpen(false)}
-                className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium">
-                Отмена
-              </button>
-              <button onClick={handleSave} disabled={isSaving}
-                className="flex-1 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2">
-                {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Сохранить'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirm */}
-      {deleteConfirm !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
-          <div className="relative glass-card rounded-2xl w-full max-w-sm p-6">
-            <h2 className="text-lg font-bold mb-2">Удалить счёт?</h2>
-            <p className="text-sm text-default-500 mb-5">Все транзакции по этому счёту также будут удалены. Это действие необратимо.</p>
+            <p className="text-sm text-default-400">
+              {isBankAcc
+                ? 'Банковский счёт будет деактивирован. История транзакций сохранится.'
+                : 'Счёт наличных и все связанные данные будут удалены безвозвратно.'
+              }
+            </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)}
-                className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium">
+              <button
+                onClick={() => setDeleteId(null)}
+                className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
+              >
                 Отмена
               </button>
-              <button onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 h-10 rounded-xl bg-[#FF3366] text-white text-sm font-semibold hover:bg-[#CC2952] transition-colors">
-                Удалить
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 h-10 rounded-xl bg-[#FF3366] hover:bg-[#CC2952] text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {deleting
+                  ? <RefreshCw className="w-4 h-4 animate-spin" />
+                  : isBankAcc ? 'Деактивировать' : 'Удалить'
+                }
               </button>
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
+      );
+    })()}
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium text-default-600">{label}</label>
-      {children}
-    </div>
-  );
-}
+  </div> 
+);
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <button onClick={onChange} role="switch" aria-checked={checked}
-      className={`relative inline-flex w-10 h-6 rounded-full transition-colors flex-shrink-0 focus:outline-none ${checked ? 'bg-[#00FFA3]' : 'bg-content3'}`}>
-      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-1'}`} />
-    </button>
-  );
-}

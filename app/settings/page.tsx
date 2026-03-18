@@ -1,20 +1,26 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { User, Lock, Bell, Check, RefreshCw, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/useAuth';
 import Cookies from 'js-cookie';
+import {
+  User, Lock, Bell, Check, RefreshCw, AlertCircle,
+  Eye, EyeOff, ExternalLink, Send, CheckCircle,
+  Unlink, Copy, CheckCheck,
+} from 'lucide-react';
 
-type Tab = 'profile' | 'security' | 'notifications';
+type Tab = 'profile' | 'security' | 'notifications' | 'integrations';
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'profile', label: 'Профиль', icon: <User className="w-4 h-4" /> },
-  { id: 'security', label: 'Безопасность', icon: <Lock className="w-4 h-4" /> },
-  { id: 'notifications', label: 'Уведомления', icon: <Bell className="w-4 h-4" /> },
+  { id: 'profile',      label: 'Профиль',      icon: <User className="w-4 h-4" /> },
+  { id: 'security',     label: 'Безопасность', icon: <Lock className="w-4 h-4" /> },
+  { id: 'notifications',label: 'Уведомления',  icon: <Bell className="w-4 h-4" /> },
+  { id: 'integrations', label: 'Telegram',   icon: <Send className="w-4 h-4" /> },
 ];
 
 export default function SettingsPage() {
   const { user, updateUser } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<Tab>('profile');
 
   // Profile
@@ -38,6 +44,17 @@ export default function SettingsPage() {
   const [notifEmail, setNotifEmail] = useState(false);
   const [notifPush, setNotifPush] = useState(true);
 
+
+  // Telegram
+  const [tgStatus, setTgStatus]     = useState<{ is_linked: boolean; telegram_username?: string } | null>(null);
+  const [tgLoading, setTgLoading]   = useState(false);
+  const [tgLinkData, setTgLinkData] = useState<{ deep_link: string; expires_at: string } | null>(null);
+  const [copied, setCopied]         = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Заполняем форму данными пользователя
   useEffect(() => {
     if (user) {
@@ -47,17 +64,28 @@ export default function SettingsPage() {
     }
   }, [user]);
 
+
+  useEffect(() => {
+    if (!mounted) return;
+    apiClient.get('/telegram/status')
+      .then((r) => setTgStatus(r.data))
+      .catch(() => setTgStatus({ is_linked: false }));
+  }, [mounted]);
+
+
   const handleSaveProfile = async () => {
     setProfileSaving(true);
     setProfileError('');
     try {
       const res = await apiClient.patch('/users/me', {
-        username: name,
-        email,
-        full_name: fullName || undefined,
+	username:  name     || undefined,
+	email:     email    || undefined,
+	full_name: fullName || undefined,
       });
+
+      // updateUser сам обновит стейт + куку
       updateUser(res.data);
-      Cookies.set('user', JSON.stringify(res.data));
+
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2000);
     } catch (err: any) {
@@ -67,15 +95,16 @@ export default function SettingsPage() {
     }
   };
 
+  // Бэкенд ожидает old_password, не current_password
   const handleChangePassword = async () => {
     if (newPwd !== confirmPwd) { setPwdError('Пароли не совпадают'); return; }
-    if (newPwd.length < 8) { setPwdError('Пароль минимум 8 символов'); return; }
+    if (newPwd.length < 8) { setPwdError('Минимум 8 символов'); return; }
     setPwdSaving(true);
     setPwdError('');
     try {
       await apiClient.post('/auth/change-password', {
-        current_password: currentPwd,
-        new_password: newPwd,
+	old_password: currentPwd,   // ← было current_password
+	new_password: newPwd,
       });
       setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
       setPwdSaved(true);
@@ -86,9 +115,50 @@ export default function SettingsPage() {
       setPwdSaving(false);
     }
   };
+  // Инициалы — только после монтирования
+  const initials = mounted
+    ? (user?.full_name ?? user?.username ?? 'AF')
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : 'AF'
 
-  const initials = (user?.full_name ?? user?.username ?? 'AF')
-    .split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  // Генерация deep link:
+  const handleGenerateLink = async () => {
+    setTgLoading(true);
+    try {
+      const res = await apiClient.post('/telegram/generate-link');
+      setTgLinkData(res.data);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setTgLoading(false);
+    }
+  };
+
+  // Копировать ссылку:
+  const handleCopy = async () => {
+    if (!tgLinkData) return;
+    await navigator.clipboard.writeText(tgLinkData.deep_link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Отвязать Telegram:
+  const handleUnlink = async () => {
+    setTgLoading(true);
+    try {
+      await apiClient.delete('/telegram/unlink');
+      setTgStatus({ is_linked: false });
+      setTgLinkData(null);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setTgLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -118,21 +188,31 @@ export default function SettingsPage() {
       {tab === 'profile' && (
         <div className="glass-card rounded-2xl p-6 space-y-6">
           {/* Avatar */}
-          <div className="flex items-center gap-5">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
-              <span className="text-2xl font-bold text-black">{initials}</span>
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">{user?.full_name ?? user?.username}</p>
-              <p className="text-sm text-default-400">{user?.email}</p>
-            </div>
-          </div>
-
-          {profileError && (
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/30 text-sm text-[#FF3366]">
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {profileError}
-            </div>
-          )}
+	  <div className="flex items-center gap-5">
+	    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
+	      {/* suppressHydrationWarning подавляет предупреждение для этого элемента */}
+	      <span
+		className="text-2xl font-bold text-black"
+		suppressHydrationWarning
+	      >
+		{initials}
+	      </span>
+	    </div>
+	    <div>
+	      <p
+		className="font-semibold text-foreground"
+		suppressHydrationWarning
+	      >
+		{mounted ? (user?.full_name ?? user?.username) : ''}
+	      </p>
+	      <p
+		className="text-sm text-default-400"
+		suppressHydrationWarning
+	      >
+		{mounted ? user?.email : ''}
+	      </p>
+	    </div>
+	  </div>
 
           <div className="space-y-4 pt-2 border-t border-divider">
             <Field label="Имя пользователя">
@@ -216,6 +296,104 @@ export default function SettingsPage() {
               <Toggle checked={item.value} onChange={() => item.set(!item.value)} />
             </div>
           ))}
+        </div>
+      )}
+      {/* Integrations Tab */}
+      {tab === 'integrations' && (
+        <div className="glass-card rounded-2xl p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#00E5FF]/10 flex items-center justify-center">
+              <Send className="w-5 h-5 text-[#00E5FF]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Telegram</h2>
+              <p className="text-sm text-default-400">
+                Привязка бота для загрузки банковских выписок
+              </p>
+            </div>
+          </div>
+
+          {tgStatus === null ? (
+            // Загрузка статуса
+            <div className="flex items-center gap-2 text-sm text-default-400">
+              <RefreshCw className="w-4 h-4 animate-spin" /> Загрузка...
+            </div>
+          ) : tgStatus.is_linked ? (
+            // Привязан
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-[#00FFA3]/10 border border-[#00FFA3]/30">
+                <CheckCircle className="w-5 h-5 text-[#00FFA3] flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-[#00FFA3]">Telegram привязан</p>
+                  {tgStatus.telegram_username && (
+                    <p className="text-xs text-default-400 mt-0.5">
+                      @{tgStatus.telegram_username}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={handleUnlink}
+                disabled={tgLoading}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-[#FF3366] hover:border-[#FF3366]/50 transition-all disabled:opacity-50"
+              >
+                <Unlink className="w-4 h-4" />
+                Отвязать Telegram
+              </button>
+            </div>
+          ) : !tgLinkData ? (
+            // Не привязан — показываем кнопку генерации
+            <div className="space-y-3">
+              <p className="text-sm text-default-400 leading-relaxed">
+                Привяжите Telegram бота чтобы загружать банковские выписки прямо
+                из мессенджера. Транзакции будут импортироваться автоматически.
+              </p>
+              <button
+                onClick={handleGenerateLink}
+                disabled={tgLoading}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/40 text-sm text-[#00E5FF] hover:bg-[#00E5FF]/20 transition-all disabled:opacity-50"
+              >
+                {tgLoading
+                  ? <span className="w-4 h-4 border-2 border-[#00E5FF]/30 border-t-[#00E5FF] rounded-full animate-spin" />
+                  : <Send className="w-4 h-4" />
+                }
+                Привязать Telegram
+              </button>
+            </div>
+          ) : (
+            // Deep link сгенерирован
+            <div className="space-y-3">
+              <p className="text-sm text-default-400">
+                Ссылка действительна{' '}
+                <span className="text-foreground font-medium">10 минут</span>.
+                Нажмите кнопку чтобы открыть бота.
+              </p>
+              <a
+                href={tgLinkData.deep_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Открыть Telegram бота
+              </a>
+              <button
+                onClick={handleCopy}
+                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-foreground hover:bg-content3 transition-all"
+              >
+                {copied
+                  ? <><Check className="w-4 h-4 text-[#00FFA3]" /><span className="text-[#00FFA3]">Скопировано</span></>
+                  : <><Copy className="w-4 h-4" />Скопировать ссылку</>
+                }
+              </button>
+              <button
+                onClick={() => setTgLinkData(null)}
+                className="text-xs text-default-400 hover:text-default-600 transition-colors w-full text-center pt-1"
+              >
+                Сгенерировать новую ссылку
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
