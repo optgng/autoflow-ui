@@ -252,3 +252,32 @@
     }
   }
 }
+
+/* Переопределения для теплой светлой темы */
+[data-theme="light"] {
+  background-color: #FDFBF7 !important; /* Теплый молочно-бежевый фон */
+}
+[data-theme="light"] .bg-background {
+  background-color: #FDFBF7 !important;
+}
+[data-theme="light"] .glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.03);
+}
+
+/* Делаем акцентный голубой темнее в светлой теме для улучшенной читаемости */
+[data-theme="light"] .text-\[\#00E5FF\], [data-theme="light"] .text-00E5FF {
+  color: #0066CC !important; 
+}
+[data-theme="light"] .bg-\[\#00E5FF\], [data-theme="light"] .bg-00E5FF {
+  background-color: #0066CC !important;
+}
+[data-theme="light"] .border-\[\#00E5FF\], [data-theme="light"] .border-00E5FF {
+  border-color: #0066CC !important;
+}
+[data-theme="light"] .gradient-text-primary {
+  background: linear-gradient(135deg, #0077CC 0%, #0044AA 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

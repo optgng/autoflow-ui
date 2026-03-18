@@ -38,7 +38,7 @@ export default function DashboardPage() {
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-  
+
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
@@ -64,7 +64,7 @@ export default function DashboardPage() {
         let totalIncome = 0;
         let totalExpense = 0;
         for (const tx of allTx) {
-          if (tx.transaction_type === 'income')  totalIncome  += Number(tx.amount);
+          if (tx.transaction_type === 'income') totalIncome += Number(tx.amount);
           if (tx.transaction_type === 'expense') totalExpense += Number(tx.amount);
         }
 
@@ -96,7 +96,7 @@ export default function DashboardPage() {
         for (const tx of allTx) {
           const d = formatDateUI(tx.transaction_date);
           if (!byDate[d]) byDate[d] = { income: 0, expense: 0 };
-          if (tx.transaction_type === 'income')  byDate[d].income  += Number(tx.amount);
+          if (tx.transaction_type === 'income') byDate[d].income += Number(tx.amount);
           if (tx.transaction_type === 'expense') byDate[d].expense += Number(tx.amount);
         }
         setChartData(
@@ -114,7 +114,7 @@ export default function DashboardPage() {
     load();
   }, [period]);
 
-  
+
   const saved = stats.totalIncome - stats.totalExpense;
   const savedPct = stats.totalIncome > 0
     ? Math.round((saved / stats.totalIncome) * 100)
@@ -138,7 +138,7 @@ export default function DashboardPage() {
             За {period} дней <ChevronDown className="w-4 h-4 text-default-400" />
           </button>
           {periodOpen && (
-            <div className="absolute right-0 mt-2 w-44 glass-card rounded-xl py-1 z-50 shadow-lg">
+            <div className="absolute right-0 mt-2 w-44 glass-card rounded-xl py-1 z-50 shadow-lg backdrop-blur-2xl">
               {PERIODS.map((p) => (
                 <button
                   key={p}

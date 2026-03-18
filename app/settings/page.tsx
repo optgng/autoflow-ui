@@ -12,10 +12,10 @@ import {
 type Tab = 'profile' | 'security' | 'notifications' | 'integrations';
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'profile',      label: 'Профиль',      icon: <User className="w-4 h-4" /> },
-  { id: 'security',     label: 'Безопасность', icon: <Lock className="w-4 h-4" /> },
-  { id: 'notifications',label: 'Уведомления',  icon: <Bell className="w-4 h-4" /> },
-  { id: 'integrations', label: 'Telegram',   icon: <Send className="w-4 h-4" /> },
+  { id: 'profile', label: 'Профиль', icon: <User className="w-4 h-4" /> },
+  { id: 'security', label: 'Безопасность', icon: <Lock className="w-4 h-4" /> },
+  { id: 'notifications', label: 'Уведомления', icon: <Bell className="w-4 h-4" /> },
+  { id: 'integrations', label: 'Telegram', icon: <Send className="w-4 h-4" /> },
 ];
 
 export default function SettingsPage() {
@@ -46,10 +46,10 @@ export default function SettingsPage() {
 
 
   // Telegram
-  const [tgStatus, setTgStatus]     = useState<{ is_linked: boolean; telegram_username?: string } | null>(null);
-  const [tgLoading, setTgLoading]   = useState(false);
+  const [tgStatus, setTgStatus] = useState<{ is_linked: boolean; telegram_username?: string } | null>(null);
+  const [tgLoading, setTgLoading] = useState(false);
   const [tgLinkData, setTgLinkData] = useState<{ deep_link: string; expires_at: string } | null>(null);
-  const [copied, setCopied]         = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -72,15 +72,30 @@ export default function SettingsPage() {
       .catch(() => setTgStatus({ is_linked: false }));
   }, [mounted]);
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (mounted && tgStatus && !tgStatus.islinked && tgLinkData) {
+      interval = setInterval(() => {
+        apiClient.get('/telegram/status').then(r => {
+          if (r.data.islinked) {
+            setTgStatus({ islinked: true, telegramusername: r.data.telegramusername });
+            setTgLinkData(null);
+            clearInterval(interval);
+          }
+        }).catch(() => { });
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [mounted, tgStatus?.islinked, tgLinkData]);
 
   const handleSaveProfile = async () => {
     setProfileSaving(true);
     setProfileError('');
     try {
       const res = await apiClient.patch('/users/me', {
-	username:  name     || undefined,
-	email:     email    || undefined,
-	full_name: fullName || undefined,
+        username: name || undefined,
+        email: email || undefined,
+        full_name: fullName || undefined,
       });
 
       // updateUser сам обновит стейт + куку
@@ -103,8 +118,8 @@ export default function SettingsPage() {
     setPwdError('');
     try {
       await apiClient.post('/auth/change-password', {
-	old_password: currentPwd,   // ← было current_password
-	new_password: newPwd,
+        old_password: currentPwd,   // ← было current_password
+        new_password: newPwd,
       });
       setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
       setPwdSaved(true);
@@ -118,11 +133,11 @@ export default function SettingsPage() {
   // Инициалы — только после монтирования
   const initials = mounted
     ? (user?.full_name ?? user?.username ?? 'AF')
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
+      .split(' ')
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
     : 'AF'
 
   // Генерация deep link:
@@ -188,31 +203,31 @@ export default function SettingsPage() {
       {tab === 'profile' && (
         <div className="glass-card rounded-2xl p-6 space-y-6">
           {/* Avatar */}
-	  <div className="flex items-center gap-5">
-	    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
-	      {/* suppressHydrationWarning подавляет предупреждение для этого элемента */}
-	      <span
-		className="text-2xl font-bold text-black"
-		suppressHydrationWarning
-	      >
-		{initials}
-	      </span>
-	    </div>
-	    <div>
-	      <p
-		className="font-semibold text-foreground"
-		suppressHydrationWarning
-	      >
-		{mounted ? (user?.full_name ?? user?.username) : ''}
-	      </p>
-	      <p
-		className="text-sm text-default-400"
-		suppressHydrationWarning
-	      >
-		{mounted ? user?.email : ''}
-	      </p>
-	    </div>
-	  </div>
+          <div className="flex items-center gap-5">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
+              {/* suppressHydrationWarning подавляет предупреждение для этого элемента */}
+              <span
+                className="text-2xl font-bold text-black"
+                suppressHydrationWarning
+              >
+                {initials}
+              </span>
+            </div>
+            <div>
+              <p
+                className="font-semibold text-foreground"
+                suppressHydrationWarning
+              >
+                {mounted ? (user?.full_name ?? user?.username) : ''}
+              </p>
+              <p
+                className="text-sm text-default-400"
+                suppressHydrationWarning
+              >
+                {mounted ? user?.email : ''}
+              </p>
+            </div>
+          </div>
 
           <div className="space-y-4 pt-2 border-t border-divider">
             <Field label="Имя пользователя">

@@ -84,15 +84,15 @@ export default function AnalyticsPage() {
 
       // Один запрос — всё считаем на фронте
       const [txRes, balanceRes, budgetsRes] = await Promise.all([
-	apiClient.get('/transactions', {
-	  params: {
-	    datefrom: dateFrom,   // ← без подчёркивания
-	    dateto: dateTo,       // ← без подчёркивания
-	    pagesize: 500,
-	    page: 1,
-	  },
-	}),
-	apiClient.get('/accounts/total-balance'),
+        apiClient.get('/transactions', {
+          params: {
+            datefrom: dateFrom,   // ← без подчёркивания
+            dateto: dateTo,       // ← без подчёркивания
+            pagesize: 500,
+            page: 1,
+          },
+        }),
+        apiClient.get('/accounts/total-balance'),
       ]);
 
       const allTx = txRes.data.items ?? [];
@@ -100,63 +100,63 @@ export default function AnalyticsPage() {
       // Totals
       let income = 0, expense = 0;
       for (const tx of allTx) {
-	if (tx.transaction_type === 'income')  income  += Number(tx.amount);
-	if (tx.transaction_type === 'expense') expense += Number(tx.amount);
+        if (tx.transaction_type === 'income') income += Number(tx.amount);
+        if (tx.transaction_type === 'expense') expense += Number(tx.amount);
       }
       setTotals({
-	income,
-	expense,
-	balance: Number(balanceRes.data?.total_balance ?? 0),
+        income,
+        expense,
+        balance: Number(balanceRes.data?.total_balance ?? 0),
       });
 
       // Категории расходов
       const expCatMap: Record<string, number> = {};
       const incCatMap: Record<string, number> = {};
       for (const tx of allTx) {
-	const name = tx.category?.name ?? 'Прочее';
-	if (tx.transaction_type === 'expense') expCatMap[name] = (expCatMap[name] ?? 0) + Number(tx.amount);
-	if (tx.transaction_type === 'income')  incCatMap[name] = (incCatMap[name] ?? 0) + Number(tx.amount);
+        const name = tx.category?.name ?? 'Прочее';
+        if (tx.transaction_type === 'expense') expCatMap[name] = (expCatMap[name] ?? 0) + Number(tx.amount);
+        if (tx.transaction_type === 'income') incCatMap[name] = (incCatMap[name] ?? 0) + Number(tx.amount);
       }
       setExpenseByCategory(
-	Object.entries(expCatMap).map(([name, total], i) => ({
-	  category_name: name, total,
-	  color: CHART_COLORS[i % CHART_COLORS.length],
-	}))
+        Object.entries(expCatMap).map(([name, total], i) => ({
+          category_name: name, total,
+          color: CHART_COLORS[i % CHART_COLORS.length],
+        }))
       );
       setIncomeByCategory(
-	Object.entries(incCatMap).map(([name, total], i) => ({
-	  category_name: name, total,
-	  color: CHART_COLORS[i % CHART_COLORS.length],
-	}))
+        Object.entries(incCatMap).map(([name, total], i) => ({
+          category_name: name, total,
+          color: CHART_COLORS[i % CHART_COLORS.length],
+        }))
       );
 
       // Помесячно
       const byMonth: Record<string, { income: number; expense: number }> = {};
       for (const tx of allTx) {
-	const month = tx.transaction_date.slice(0, 7);
-	if (!byMonth[month]) byMonth[month] = { income: 0, expense: 0 };
-	if (tx.transaction_type === 'income')  byMonth[month].income  += Number(tx.amount);
-	if (tx.transaction_type === 'expense') byMonth[month].expense += Number(tx.amount);
+        const month = tx.transaction_date.slice(0, 7);
+        if (!byMonth[month]) byMonth[month] = { income: 0, expense: 0 };
+        if (tx.transaction_type === 'income') byMonth[month].income += Number(tx.amount);
+        if (tx.transaction_type === 'expense') byMonth[month].expense += Number(tx.amount);
       }
       setMonthlyData(
-	Object.entries(byMonth)
-	  .sort(([a], [b]) => a.localeCompare(b))
-	  .map(([month, v]) => ({ month, ...v, balance: v.income - v.expense }))
+        Object.entries(byMonth)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([month, v]) => ({ month, ...v, balance: v.income - v.expense }))
       );
 
       // Топ продавцов
       const merchantMap: Record<string, { total: number; count: number }> = {};
       for (const tx of allTx) {
-	if (tx.transaction_type !== 'expense' || !tx.merchant) continue;
-	if (!merchantMap[tx.merchant]) merchantMap[tx.merchant] = { total: 0, count: 0 };
-	merchantMap[tx.merchant].total += Number(tx.amount);
-	merchantMap[tx.merchant].count += 1;
+        if (tx.transaction_type !== 'expense' || !tx.merchant) continue;
+        if (!merchantMap[tx.merchant]) merchantMap[tx.merchant] = { total: 0, count: 0 };
+        merchantMap[tx.merchant].total += Number(tx.amount);
+        merchantMap[tx.merchant].count += 1;
       }
       setTopMerchants(
-	Object.entries(merchantMap)
-	  .map(([merchant, v]) => ({ merchant, ...v }))
-	  .sort((a, b) => b.total - a.total)
-	  .slice(0, 5)
+        Object.entries(merchantMap)
+          .map(([merchant, v]) => ({ merchant, ...v }))
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 5)
       );
 
     } catch (err: any) {
@@ -165,7 +165,7 @@ export default function AnalyticsPage() {
       setIsLoading(false);
     }
   }, [periodIdx]);
-  
+
 
   useEffect(() => { load(); }, [load]);
 
@@ -200,7 +200,7 @@ export default function AnalyticsPage() {
           <div className="relative">
             <button
               onClick={() => setPeriodOpen(!periodOpen)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors backdrop-blur-2xl"
             >
               {PERIODS[periodIdx].label}
               <ChevronDown className="w-4 h-4 text-default-400" />

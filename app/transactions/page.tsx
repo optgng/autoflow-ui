@@ -11,18 +11,19 @@ type SortDir = 'asc' | 'desc';
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories]     = useState<Category[]>([]);
-  const [total, setTotal]               = useState(0);
-  const [totalPages, setTotalPages]     = useState(1);   // ← отдельный стейт
-  const [isLoading, setIsLoading]       = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);   // ← отдельный стейт
+  const [isLoading, setIsLoading] = useState(true);
+  const [categoryOpen, setCategoryOpen] = useState(false)
 
-  const [search, setSearch]               = useState('');
-  const [typeFilter, setTypeFilter]       = useState<'all' | TransactionType>('all');
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | TransactionType>('all');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [pageSize, setPageSize]           = useState<(typeof PAGE_SIZES)[number]>(10);
-  const [page, setPage]                   = useState(1);  // ← отдельный стейт
-  const [sortDir, setSortDir]             = useState<SortDir>('desc');
-  const [modalTx, setModalTx]             = useState<Transaction | null>(null);
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
+  const [page, setPage] = useState(1);  // ← отдельный стейт
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [modalTx, setModalTx] = useState<Transaction | null>(null);
 
   // Загрузка категорий (единожды)
   useEffect(() => {
@@ -37,14 +38,14 @@ export default function TransactionsPage() {
         page_size: pageSize,
       };
       if (typeFilter !== 'all') params.transaction_type = typeFilter;
-      if (categoryFilter)       params.categoryid      = categoryFilter;
-      if (search)               params.search          = search;
+      if (categoryFilter) params.category_id = categoryFilter;
+      if (search) params.search = search;
 
       const res = await apiClient.get('/transactions', { params });
 
-      setTransactions(res.data.items    ?? []);
-      setTotal(res.data.total           ?? 0);
-      setTotalPages(res.data.totalpages ?? 1);  // ← сохраняем в стейт здесь, где res доступен
+      setTransactions(res.data.items ?? []);
+      setTotal(res.data.total ?? 0);
+      setTotalPages(res.data.total_pages ?? 1);  // ← сохраняем в стейт здесь, где res доступен
     } finally {
       setIsLoading(false);
     }
@@ -92,11 +93,10 @@ export default function TransactionsPage() {
               <button
                 key={t}
                 onClick={() => { setTypeFilter(t); resetPage(); }}
-                className={`px-4 text-sm font-medium transition-colors ${
-                  typeFilter === t
-                    ? 'bg-content3 text-foreground'
-                    : 'bg-content2 text-default-400 hover:bg-content3'
-                }`}
+                className={`px-4 text-sm font-medium transition-colors ${typeFilter === t
+                  ? 'bg-content3 text-foreground'
+                  : 'bg-content2 text-default-400 hover:bg-content3'
+                  }`}
               >
                 {t === 'all' ? 'Все' : t === 'income' ? 'Доходы' : 'Расходы'}
               </button>
@@ -104,16 +104,35 @@ export default function TransactionsPage() {
           </div>
 
           {/* Category select */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => { setCategoryFilter(e.target.value); resetPage(); }}
-            className="h-10 px-3 rounded-xl bg-content2 border border-divider text-sm text-foreground focus:outline-none focus:border-[#00E5FF] transition-all"
-          >
-            <option value="">Все категории</option>
-            {categories.map((c) => (
-              <option key={c.id} value={String(c.id)}>{c.name}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <button
+              onClick={() => setCategoryOpen(!categoryOpen)}
+              className="flex items-center gap-2 px-4 h-10 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors"
+            >
+              {categoryFilter ? categories.find(c => String(c.id) === categoryFilter)?.name : 'Все категории'}
+              <ChevronDown className="w-4 h-4 text-default-400" />
+            </button>
+
+            {categoryOpen && (
+              <div className="absolute left-0 mt-2 w-56 glass-card rounded-xl py-1 z-50 shadow-lg backdrop-blur-2xl">
+                <button
+                  onClick={() => { setCategoryFilter(""); setCategoryOpen(false); resetPage(); }}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${!categoryFilter ? 'text-[#00E5FF] font-medium' : 'text-foreground'}`}
+                >
+                  Все категории
+                </button>
+                {categories.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setCategoryFilter(String(c.id)); setCategoryOpen(false); resetPage(); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${categoryFilter === String(c.id) ? 'text-[#00E5FF] font-medium' : 'text-foreground'}`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Reset */}
           <button
@@ -188,20 +207,18 @@ export default function TransactionsPage() {
                     <td className="px-3 py-3.5 text-default-400 text-xs">
                       {tx.account?.name ?? '—'}
                     </td>
-                    <td className={`px-3 py-3.5 font-semibold tabular-nums ${
-                      tx.transaction_type === 'income' ? 'text-[#00FFA3]' : 'text-[#FF3366]'
-                    }`}>
+                    <td className={`px-3 py-3.5 font-semibold tabular-nums ${tx.transaction_type === 'income' ? 'text-[#00FFA3]' : 'text-[#FF3366]'
+                      }`}>
                       {tx.transaction_type === 'income' ? '+' : '-'}
                       {Number(tx.amount).toLocaleString('ru-RU')} ₽
                     </td>
                     <td className="px-3 py-3.5">
-                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                        tx.transaction_type === 'income'
-                          ? 'bg-[#00FFA3]/10 text-[#00FFA3]'
-                          : tx.transaction_type === 'expense'
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${tx.transaction_type === 'income'
+                        ? 'bg-[#00FFA3]/10 text-[#00FFA3]'
+                        : tx.transaction_type === 'expense'
                           ? 'bg-[#FF3366]/10 text-[#FF3366]'
                           : 'bg-[#00E5FF]/10 text-[#00E5FF]'
-                      }`}>
+                        }`}>
                         {tx.transaction_type === 'income' ? 'Доход'
                           : tx.transaction_type === 'expense' ? 'Расход' : 'Перевод'}
                       </span>
@@ -221,9 +238,8 @@ export default function TransactionsPage() {
               <button
                 key={s}
                 onClick={() => { setPageSize(s); resetPage(); }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                  pageSize === s ? 'bg-content3 text-foreground' : 'hover:bg-content2 text-default-400'
-                }`}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${pageSize === s ? 'bg-content3 text-foreground' : 'hover:bg-content2 text-default-400'
+                  }`}
               >
                 {s}
               </button>

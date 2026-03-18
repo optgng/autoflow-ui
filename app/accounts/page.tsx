@@ -15,29 +15,29 @@ type AccountType = 'card' | 'bank_account' | 'cash';
 type BankAccountType = 'card' | 'bank_account';
 
 interface Account {
-  id:                number;
-  name:              string;
-  account_type:      AccountType;
-  currency:          string;
-  balance:           string;   // Decimal с бэкенда приходит как строка
-  bank_name?:        string;
+  id: number;
+  name: string;
+  account_type: AccountType;
+  currency: string;
+  balance: string;   // Decimal с бэкенда приходит как строка
+  bank_name?: string;
   last_four_digits?: string;
-  is_active:         boolean;
-  include_in_total:  boolean;
+  is_active: boolean;
+  include_in_total: boolean;
 }
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<AccountType, string> = {
-  card:         'Карта',
+  card: 'Карта',
   bank_account: 'Счёт',
-  cash:         'Наличные',
+  cash: 'Наличные',
 };
 
 const TYPE_ICONS: Record<AccountType, React.ReactNode> = {
-  card:         <CreditCard className="w-5 h-5" />,
-  bank_account: <Landmark   className="w-5 h-5" />,
-  cash:         <Wallet     className="w-5 h-5" />,
+  card: <CreditCard className="w-5 h-5" />,
+  bank_account: <Landmark className="w-5 h-5" />,
+  cash: <Wallet className="w-5 h-5" />,
 };
 
 const CURRENCIES = ['RUB', 'USD', 'EUR', 'GBP', 'CNY'] as const;
@@ -53,24 +53,24 @@ function formatBalance(balance: string, currency: string): string {
 // ─── Компонент ───────────────────────────────────────────────────────────────
 
 export default function AccountsPage() {
-  const [accounts,     setAccounts]     = useState<Account[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const [editId,       setEditId]       = useState<number | null>(null);
-  const [showCreate,   setShowCreate]   = useState(false);
-  const [error,        setError]        = useState('');
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [error, setError] = useState('');
 
   // Форма редактирования
-  const [editName,     setEditName]     = useState('');
-  const [editBank,     setEditBank]     = useState('');
-  const [editType,     setEditType]     = useState<BankAccountType>('card');
+  const [editName, setEditName] = useState('');
+  const [editBank, setEditBank] = useState('');
+  const [editType, setEditType] = useState<BankAccountType>('card');
   const [editCurrency, setEditCurrency] = useState('RUB');
-  const [saving,       setSaving]       = useState(false);
+  const [saving, setSaving] = useState(false);
   const [editBalance, setEditBalance] = useState('');
 
   // Форма создания наличных
-  const [cashName,     setCashName]     = useState('');
+  const [cashName, setCashName] = useState('');
   const [cashCurrency, setCashCurrency] = useState('RUB');
-  const [creating,     setCreating]     = useState(false);
+  const [creating, setCreating] = useState(false);
 
   // Удаление счетов
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -104,17 +104,17 @@ export default function AccountsPage() {
     setError('');
     try {
       const payload: Record<string, unknown> = {
-        name:     editName     || undefined,
+        name: editName || undefined,
         currency: editCurrency || undefined,
       };
       // bank_name и account_type — только для card/bank_account
       if (acc.account_type !== 'cash') {
-        payload.bank_name    = editBank || undefined;
+        payload.bank_name = editBank || undefined;
         payload.account_type = editType; // 'card' | 'bank_account'
       }
       if (acc.account_type === 'cash') {
-  	const bal = parseFloat(editBalance);
-  	if (!isNaN(bal)) payload.balance = String(bal);
+        const bal = parseFloat(editBalance);
+        if (!isNaN(bal)) payload.balance = String(bal);
       }
       const res = await apiClient.patch(`/accounts/${acc.id}`, payload);
       setAccounts(prev => prev.map(a => a.id === acc.id ? res.data : a));
@@ -133,9 +133,9 @@ export default function AccountsPage() {
     setError('');
     try {
       const res = await apiClient.post('/accounts', {
-        name:         cashName,
+        name: cashName,
         account_type: 'cash',
-        currency:     cashCurrency,
+        currency: cashCurrency,
       });
       setAccounts(prev => [...prev, res.data]);
       setShowCreate(false);
@@ -162,259 +162,206 @@ export default function AccountsPage() {
       setDeleteId(null);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })
-	?.response?.data?.detail;
+        ?.response?.data?.detail;
       setError(msg || 'Ошибка удаления');
     } finally {
       setDeleting(false);
     }
   };
-return (
-  <div className="space-y-6 max-w-3xl">
+  return (
+    <div className="space-y-6 max-w-3xl">
 
-    {/* Header */}
-    <div className="flex items-center justify-between">
-      <div>
-        <nav className="text-xs text-default-400 mb-1">
-          <span>Dashboard</span><span className="mx-1.5">/</span>
-          <span className="text-foreground">Счета</span>
-        </nav>
-        <h1 className="text-3xl font-bold text-foreground">Счета</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <nav className="text-xs text-default-400 mb-1">
+            <span>Dashboard</span><span className="mx-1.5">/</span>
+            <span className="text-foreground">Счета</span>
+          </nav>
+          <h1 className="text-3xl font-bold text-foreground">Счета</h1>
+        </div>
+        <button
+          onClick={() => { setShowCreate(true); setError(''); }}
+          className="flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-all"
+        >
+          <Plus className="w-4 h-4" /> Наличный счёт
+        </button>
       </div>
-      <button
-        onClick={() => { setShowCreate(true); setError(''); }}
-        className="flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-all"
-      >
-        <Plus className="w-4 h-4" /> Добавить наличные
-      </button>
-    </div>
 
-    {/* Подсказка */}
-    <div className="flex items-start gap-3 p-4 rounded-xl bg-[#00E5FF]/5 border border-[#00E5FF]/20 text-sm text-default-400">
-      <AlertCircle className="w-4 h-4 text-[#00E5FF] flex-shrink-0 mt-0.5" />
-      Банковские карты и счета добавляются автоматически при загрузке выписки
-      через Telegram бота. Вручную можно добавить только счёт наличных.
-    </div>
+      {/* Подсказка */}
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-[#00E5FF]/5 border border-[#00E5FF]/20 text-sm text-default-400">
+        <AlertCircle className="w-4 h-4 text-[#00E5FF] flex-shrink-0 mt-0.5" />
+        Банковские карты и счета добавляются автоматически при загрузке выписки
+        через Telegram бота. Вручную можно добавить только счёт наличных.
+      </div>
 
-    {/* Список */}
-    {loading ? (
-      <div className="flex justify-center py-12">
-        <RefreshCw className="w-6 h-6 animate-spin text-default-400" />
-      </div>
-    ) : accounts.length === 0 ? (
-      <div className="glass-card rounded-2xl p-12 text-center text-default-400">
-        <Wallet className="w-12 h-12 mx-auto mb-3 opacity-30" />
-        <p className="font-medium">Счета не найдены</p>
-        <p className="text-sm mt-1">
-          Загрузите выписку через Telegram бота — счета появятся автоматически
-        </p>
-      </div>
-    ) : (
-      <div className="space-y-3">
-        {accounts.map(acc => (
-          <div key={acc.id} className="glass-card rounded-2xl p-5">
-            {editId === acc.id ? (
-              /* ── Режим редактирования ── */
-              <div className="space-y-4">
-                {error && (
-                  <div className="flex items-center gap-2 text-sm text-[#FF3366]">
-                    <AlertCircle className="w-4 h-4" /> {error}
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-default-400">Название</label>
-                    <input
-                      value={editName}
-                      onChange={e => setEditName(e.target.value)}
-                      className="input-field h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-default-400">Валюта</label>
-                    <select
-                      value={editCurrency}
-                      onChange={e => setEditCurrency(e.target.value)}
-                      className="input-field h-9 text-sm"
-                    >
-                      {CURRENCIES.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-		  {acc.account_type === 'cash' && (
-		    <div className="space-y-1.5">
-		      <label className="text-xs text-default-400">Баланс</label>
-		      <input
-			type="number"
-			value={editBalance}
-			onChange={e => setEditBalance(e.target.value)}
-			placeholder="0"
-			className="input-field h-9 text-sm"
-		      />
-		    </div>
-		  )}
-                  {acc.account_type !== 'cash' && (
-                    <>
+      {/* Список */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <RefreshCw className="w-6 h-6 animate-spin text-default-400" />
+        </div>
+      ) : accounts.length === 0 ? (
+        <div className="glass-card rounded-2xl p-12 text-center text-default-400">
+          <Wallet className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">Счета не найдены</p>
+          <p className="text-sm mt-1">
+            Загрузите выписку через Telegram бота — счета появятся автоматически
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {accounts.map(acc => (
+            <div key={acc.id} className="glass-card rounded-2xl p-5">
+              {editId === acc.id ? (
+                /* ── Режим редактирования ── */
+                <div className="space-y-4">
+                  {error && (
+                    <div className="flex items-center gap-2 text-sm text-[#FF3366]">
+                      <AlertCircle className="w-4 h-4" /> {error}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-default-400">Название</label>
+                      <input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        className="input-field h-9 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-default-400">Валюта</label>
+                      <select
+                        value={editCurrency}
+                        onChange={e => setEditCurrency(e.target.value)}
+                        className="input-field h-9 text-sm"
+                      >
+                        {CURRENCIES.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {acc.account_type === 'cash' && (
                       <div className="space-y-1.5">
-                        <label className="text-xs text-default-400">Банк</label>
+                        <label className="text-xs text-default-400">Баланс</label>
                         <input
-                          value={editBank}
-                          onChange={e => setEditBank(e.target.value)}
-                          placeholder="Сбербанк"
+                          type="number"
+                          value={editBalance}
+                          onChange={e => setEditBalance(e.target.value)}
+                          placeholder="0"
                           className="input-field h-9 text-sm"
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-default-400">Тип</label>
-                        <select
-                          value={editType}
-                          onChange={e => setEditType(e.target.value as BankAccountType)}
-                          className="input-field h-9 text-sm"
-                        >
-                          <option value="card">Карта</option>
-                          <option value="bank_account">Счёт</option>
-                        </select>
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleSave(acc)}
-                    disabled={saving}
-                    className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold disabled:opacity-60"
-                  >
-                    {saving
-                      ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      : <Check className="w-3.5 h-3.5" />
-                    }
-                    Сохранить
-                  </button>
-                  <button
-                    onClick={() => setEditId(null)}
-                    className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-content2 border border-divider text-sm text-default-400 hover:text-foreground"
-                  >
-                    <X className="w-3.5 h-3.5" /> Отмена
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* ── Режим просмотра ── */
-              <div className="flex items-center justify-between">
-                {/* Левая часть — иконка + текст */}
-                <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-[#00E5FF]/10 flex items-center justify-center text-[#00E5FF]">
-                    {TYPE_ICONS[acc.account_type]}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-foreground">{acc.name}</p>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-content2 text-default-400">
-                        {TYPE_LABELS[acc.account_type]}
-                      </span>
-                      {acc.bank_name && (
-                        <span className="text-xs text-default-400">{acc.bank_name}</span>
-                      )}
-                    </div>
-                    {acc.last_four_digits ? (
-                      <p className="text-xs text-default-400 mt-0.5">
-                        •••• {acc.last_four_digits} · {acc.currency}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-default-400 mt-0.5">{acc.currency}</p>
+                    )}
+                    {acc.account_type !== 'cash' && (
+                      <>
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-default-400">Банк</label>
+                          <input
+                            value={editBank}
+                            onChange={e => setEditBank(e.target.value)}
+                            placeholder="Сбербанк"
+                            className="input-field h-9 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-default-400">Тип</label>
+                          <select
+                            value={editType}
+                            onChange={e => setEditType(e.target.value as BankAccountType)}
+                            className="input-field h-9 text-sm"
+                          >
+                            <option value="card">Карта</option>
+                            <option value="bank_account">Счёт</option>
+                          </select>
+                        </div>
+                      </>
                     )}
                   </div>
-                </div> {/* ← конец левой части */}
-
-                {/* Правая часть — баланс + кнопки */}
-                <div className="flex items-center gap-4">
-                  <p className="text-lg font-bold text-foreground">
-                    {formatBalance(acc.balance, acc.currency)}
-                  </p>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => openEdit(acc)}
-                      className="p-2 rounded-lg text-default-400 hover:text-foreground hover:bg-content2 transition-all"
-                      aria-label="Редактировать"
+                      onClick={() => handleSave(acc)}
+                      disabled={saving}
+                      className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold disabled:opacity-60"
                     >
-                      <Pencil className="w-4 h-4" />
+                      {saving
+                        ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        : <Check className="w-3.5 h-3.5" />
+                      }
+                      Сохранить
                     </button>
                     <button
-                      onClick={() => { setDeleteId(acc.id); setError(''); }}
-                      className="p-2 rounded-lg text-default-400 hover:text-[#FF3366] hover:bg-[#FF3366]/10 transition-all"
-                      aria-label="Удалить"
+                      onClick={() => setEditId(null)}
+                      className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-content2 border border-divider text-sm text-default-400 hover:text-foreground"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <X className="w-3.5 h-3.5" /> Отмена
                     </button>
                   </div>
-                </div> {/* ← конец правой части */}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    )}
+                </div>
+              ) : (
+                /* ── Режим просмотра ── */
+                <div className="flex items-center justify-between">
+                  {/* Левая часть — иконка + текст */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-xl bg-[#00E5FF]/10 flex items-center justify-center text-[#00E5FF]">
+                      {TYPE_ICONS[acc.account_type]}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-foreground">{acc.name}</p>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-content2 text-default-400">
+                          {TYPE_LABELS[acc.account_type]}
+                        </span>
+                        {acc.bank_name && (
+                          <span className="text-xs text-default-400">{acc.bank_name}</span>
+                        )}
+                      </div>
+                      {acc.last_four_digits ? (
+                        <p className="text-xs text-default-400 mt-0.5">
+                          •••• {acc.last_four_digits} · {acc.currency}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-default-400 mt-0.5">{acc.currency}</p>
+                      )}
+                    </div>
+                  </div> {/* ← конец левой части */}
 
-    {/* ── Модал создания наличных ── */}
-    {showCreate && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-        <div className="glass-card rounded-2xl p-6 w-full max-w-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-foreground">Добавить наличные</h2>
-            <button onClick={() => setShowCreate(false)} className="text-default-400 hover:text-foreground">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          {error && (
-            <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4" /> {error}
-            </p>
-          )}
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-default-600">Название</label>
-              <input
-                value={cashName}
-                onChange={e => setCashName(e.target.value)}
-                placeholder="Кошелёк"
-                className="input-field"
-              />
+                  {/* Правая часть — баланс + кнопки */}
+                  <div className="flex items-center gap-4">
+                    <p className="text-lg font-bold text-foreground">
+                      {formatBalance(acc.balance, acc.currency)}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEdit(acc)}
+                        className="p-2 rounded-lg text-default-400 hover:text-foreground hover:bg-content2 transition-all"
+                        aria-label="Редактировать"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => { setDeleteId(acc.id); setError(''); }}
+                        className="p-2 rounded-lg text-default-400 hover:text-[#FF3366] hover:bg-[#FF3366]/10 transition-all"
+                        aria-label="Удалить"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div> {/* ← конец правой части */}
+                </div>
+              )}
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-default-600">Валюта</label>
-              <select
-                value={cashCurrency}
-                onChange={e => setCashCurrency(e.target.value)}
-                className="input-field"
-              >
-                <option value="RUB">RUB — Российский рубль</option>
-                <option value="USD">USD — Доллар США</option>
-                <option value="EUR">EUR — Евро</option>
-                <option value="GBP">GBP — Фунт стерлингов</option>
-              </select>
-            </div>
-          </div>
-          <button
-            onClick={handleCreate}
-            disabled={creating || !cashName.trim()}
-            className="w-full h-11 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
-          >
-            {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Создать счёт'}
-          </button>
+          ))}
         </div>
-      </div>
-    )}
+      )}
 
-    {/* ── Модал подтверждения удаления ── */}
-    {deleteId !== null && (() => {
-      const acc = accounts.find(a => a.id === deleteId);
-      const isBankAcc = acc?.account_type !== 'cash';
-      return (
+      {/* ── Модал создания наличных ── */}
+      {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
           <div className="glass-card rounded-2xl p-6 w-full max-w-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-foreground">Удалить счёт?</h2>
-              <button onClick={() => setDeleteId(null)} className="text-default-400 hover:text-foreground">
+              <h2 className="font-semibold text-foreground">Добавить наличные</h2>
+              <button onClick={() => setShowCreate(false)} className="text-default-400 hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -423,41 +370,94 @@ return (
                 <AlertCircle className="w-4 h-4" /> {error}
               </p>
             )}
-            <div className="p-4 rounded-xl bg-content2 space-y-1">
-              <p className="font-medium text-foreground">{acc?.name}</p>
-              {acc?.last_four_digits && (
-                <p className="text-xs text-default-400">•••• {acc.last_four_digits}</p>
-              )}
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-default-600">Название</label>
+                <input
+                  value={cashName}
+                  onChange={e => setCashName(e.target.value)}
+                  placeholder="Кошелёк"
+                  className="input-field"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-default-600">Валюта</label>
+                <select
+                  value={cashCurrency}
+                  onChange={e => setCashCurrency(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="RUB">RUB — Российский рубль</option>
+                  <option value="USD">USD — Доллар США</option>
+                  <option value="EUR">EUR — Евро</option>
+                  <option value="GBP">GBP — Фунт стерлингов</option>
+                </select>
+              </div>
             </div>
-            <p className="text-sm text-default-400">
-              {isBankAcc
-                ? 'Банковский счёт будет деактивирован. История транзакций сохранится.'
-                : 'Счёт наличных и все связанные данные будут удалены безвозвратно.'
-              }
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex-1 h-10 rounded-xl bg-[#FF3366] hover:bg-[#CC2952] text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {deleting
-                  ? <RefreshCw className="w-4 h-4 animate-spin" />
-                  : isBankAcc ? 'Деактивировать' : 'Удалить'
-                }
-              </button>
-            </div>
+            <button
+              onClick={handleCreate}
+              disabled={creating || !cashName.trim()}
+              className="w-full h-11 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Создать счёт'}
+            </button>
           </div>
         </div>
-      );
-    })()}
+      )}
 
-  </div> 
-);
+      {/* ── Модал подтверждения удаления ── */}
+      {deleteId !== null && (() => {
+        const acc = accounts.find(a => a.id === deleteId);
+        const isBankAcc = acc?.account_type !== 'cash';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+            <div className="glass-card rounded-2xl p-6 w-full max-w-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-foreground">Удалить счёт?</h2>
+                <button onClick={() => setDeleteId(null)} className="text-default-400 hover:text-foreground">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              {error && (
+                <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4" /> {error}
+                </p>
+              )}
+              <div className="p-4 rounded-xl bg-content2 space-y-1">
+                <p className="font-medium text-foreground">{acc?.name}</p>
+                {acc?.last_four_digits && (
+                  <p className="text-xs text-default-400">•••• {acc.last_four_digits}</p>
+                )}
+              </div>
+              <p className="text-sm text-default-400">
+                {isBankAcc
+                  ? 'Банковский счёт будет деактивирован. История транзакций сохранится.'
+                  : 'Счёт наличных и все связанные данные будут удалены безвозвратно.'
+                }
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteId(null)}
+                  className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex-1 h-10 rounded-xl bg-[#FF3366] hover:bg-[#CC2952] text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {deleting
+                    ? <RefreshCw className="w-4 h-4 animate-spin" />
+                    : isBankAcc ? 'Деактивировать' : 'Удалить'
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+    </div>
+  );
 
