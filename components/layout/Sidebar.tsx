@@ -35,22 +35,22 @@ export default function Sidebar() {
 
   const initials = mounted
     ? (user?.full_name ?? user?.username ?? 'AF')
-	.split(' ')
-	.map((w) => w[0])
-	.join('')
-	.toUpperCase()
-	.slice(0, 2)
+      .split(' ')
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
     : 'AF';
-    useEffect(() => {
-      setMounted(true);
-    }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <aside className="glass-nav fixed left-0 top-0 h-screen w-64 flex flex-col z-40">
       {/* Logo */}
       <div className="p-6 border-b border-divider">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00E5FF] to-[#0066FF] flex items-center justify-center shadow-glow flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00874A] to-[#006B3B] flex items-center justify-center shadow-glow flex-shrink-0">
             <Wallet className="w-5 h-5 text-black" />
           </div>
           <div>
@@ -69,16 +69,14 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-all ${
-                isActive
-                  ? "bg-[#00E5FF]/10 text-[#00E5FF] font-semibold"
-                  : "text-default-500 hover:text-foreground hover:bg-content2 font-normal"
-              }`}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-all ${isActive
+                ? "bg-primary/10 text-primary font-semibold"
+                : "text-default-500 hover:text-foreground hover:bg-content2 font-normal"
+                }`}
             >
               <Icon
-                className={`w-5 h-5 flex-shrink-0 ${
-                  isActive ? "text-[#00E5FF]" : "text-default-400"
-                }`}
+                className={`w-5 h-5 flex-shrink-0 ${isActive ? "text-primary" : "text-default-400"
+                  }`}
               />
               <span>{item.label}</span>
               {isActive && (
@@ -107,28 +105,28 @@ export default function Sidebar() {
         )}
 
         {/* User Profile */}
-	  <div className="flex items-center gap-3 p-3 rounded-xl bg-content2 hover:bg-content3 transition-colors">
-	    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center flex-shrink-0">
-	      <span className="text-xs font-bold text-black" suppressHydrationWarning>
-		{initials}
-	      </span>
-	    </div>
-	    <div className="flex-1 min-w-0">
-	      <p className="text-sm font-medium truncate" suppressHydrationWarning>
-		{mounted ? (user?.full_name ?? user?.username ?? 'AutoFlow User') : ''}
-	      </p>
-	      <p className="text-xs text-default-500 truncate" suppressHydrationWarning>
-		{mounted ? (user?.email ?? '') : ''}
-	      </p>
-	    </div>
-	    <button
-	      onClick={logout}
-	      aria-label="Выйти"
-	      className="text-default-400 hover:text-[#FF3366] transition-colors p-1 flex-shrink-0"
-	    >
-	      <LogOut className="w-4 h-4" />
-	    </button>
-	</div>
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-content2 hover:bg-content3 transition-colors">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-bold text-black" suppressHydrationWarning>
+              {initials}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate" suppressHydrationWarning>
+              {mounted ? (user?.full_name ?? user?.username ?? 'AutoFlow User') : ''}
+            </p>
+            <p className="text-xs text-default-500 truncate" suppressHydrationWarning>
+              {mounted ? (user?.email ?? '') : ''}
+            </p>
+          </div>
+          <button
+            onClick={logout}
+            aria-label="Выйти"
+            className="text-default-400 hover:text-[#FF3366] transition-colors p-1 flex-shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </aside>
   );

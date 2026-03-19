@@ -86,7 +86,7 @@ export default function AnalyticsPage() {
       const [txRes, balanceRes, budgetsRes] = await Promise.all([
         apiClient.get('/transactions', {
           params: {
-            date_from: dateFrom,  
+            date_from: dateFrom,
             date_to: dateTo,
             page_size: 500,
             page: 1,
@@ -207,11 +207,11 @@ export default function AnalyticsPage() {
             </button>
             {periodOpen && (
               <div className="absolute right-0 mt-2 w-44 glass-dropdown rounded-xl py-1 z-50 shadow-lg animate-dropdown">
-		{PERIODS.map((p, i) => (
+                {PERIODS.map((p, i) => (
                   <button
                     key={i}
                     onClick={() => { setPeriodIdx(i); setPeriodOpen(false); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${periodIdx === i ? 'text-[#00E5FF] font-medium' : 'text-foreground'
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${periodIdx === i ? 'text-primary font-medium' : 'text-foreground'
                       }`}
                   >
                     {p.label}

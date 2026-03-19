@@ -83,7 +83,7 @@ export default function TransactionsPage() {
               value={search}
               onChange={(e) => { setSearch(e.target.value); resetPage(); }}
               placeholder="Поиск по описанию, продавцу..."
-              className="w-full h-10 pl-9 pr-4 rounded-xl bg-content2 border border-divider text-sm placeholder:text-default-400 focus:outline-none focus:border-[#00E5FF] transition-all"
+              className="w-full h-10 pl-9 pr-4 rounded-xl bg-content2 border border-divider text-sm placeholder:text-default-400 focus:outline-none focus:border-primary transition-all"
             />
           </div>
 
@@ -117,7 +117,7 @@ export default function TransactionsPage() {
               <div className="absolute left-0 mt-2 w-56 glass-card rounded-xl py-1 z-50 shadow-lg backdrop-blur-2xl">
                 <button
                   onClick={() => { setCategoryFilter(""); setCategoryOpen(false); resetPage(); }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${!categoryFilter ? 'text-[#00E5FF] font-medium' : 'text-foreground'}`}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${!categoryFilter ? 'text-primary font-medium' : 'text-foreground'}`}
                 >
                   Все категории
                 </button>
@@ -125,7 +125,7 @@ export default function TransactionsPage() {
                   <button
                     key={c.id}
                     onClick={() => { setCategoryFilter(String(c.id)); setCategoryOpen(false); resetPage(); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${categoryFilter === String(c.id) ? 'text-[#00E5FF] font-medium' : 'text-foreground'}`}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${categoryFilter === String(c.id) ? 'text-primary font-medium' : 'text-foreground'}`}
                   >
                     {c.name}
                   </button>
@@ -156,8 +156,8 @@ export default function TransactionsPage() {
                     className="flex items-center gap-1.5 text-xs font-medium text-default-400"
                   >
                     Дата {sortDir === 'asc'
-                      ? <ChevronUp className="w-3.5 h-3.5 text-[#00E5FF]" />
-                      : <ChevronDown className="w-3.5 h-3.5 text-[#00E5FF]" />}
+                      ? <ChevronUp className="w-3.5 h-3.5 text-primary" />
+                      : <ChevronDown className="w-3.5 h-3.5 text-primary" />}
                   </button>
                 </th>
                 {['Категория', 'Описание', 'Счёт', 'Сумма', 'Тип'].map((h) => (
@@ -217,7 +217,7 @@ export default function TransactionsPage() {
                         ? 'bg-[#00FFA3]/10 text-[#00FFA3]'
                         : tx.transaction_type === 'expense'
                           ? 'bg-[#FF3366]/10 text-[#FF3366]'
-                          : 'bg-[#00E5FF]/10 text-[#00E5FF]'
+                          : 'bg-primary/10 text-primary'
                         }`}>
                         {tx.transaction_type === 'income' ? 'Доход'
                           : tx.transaction_type === 'expense' ? 'Расход' : 'Перевод'}

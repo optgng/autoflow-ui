@@ -38,7 +38,7 @@ export default function StatCard({
   const Icon = iconMap[icon];
 
   const colorClasses = {
-    primary: "text-[#00E5FF] bg-[#00E5FF]/10",
+    primary: "text-primary bg-primary/10",
     success: "text-[#00FFA3] bg-[#00FFA3]/10",
     danger: "text-[#FF3366] bg-[#FF3366]/10",
   };
@@ -51,9 +51,8 @@ export default function StatCard({
 
   return (
     <Card
-      className={`glass-card hover-lift card-hover-glow transition-all ${
-        isVisible ? "animate-scale-in" : "opacity-0"
-      }`}
+      className={`glass-card hover-lift card-hover-glow transition-all ${isVisible ? "animate-scale-in" : "opacity-0"
+        }`}
     >
       <CardBody className="p-6">
         <div className="flex items-start justify-between">

@@ -139,11 +139,11 @@ export default function DashboardPage() {
           </button>
           {periodOpen && (
             <div className="absolute right-0 mt-2 w-44 glass-dropdown rounded-xl py-1 z-50 shadow-lg animate-dropdown">
-	      {PERIODS.map((p) => (
+              {PERIODS.map((p) => (
                 <button
                   key={p}
                   onClick={() => { setPeriod(p); setPeriodOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${period === p ? 'text-[#00E5FF] font-medium' : 'text-foreground'}`}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${period === p ? 'text-primary font-medium' : 'text-foreground'}`}
                 >
                   За {p} дней
                 </button>
@@ -161,7 +161,7 @@ export default function DashboardPage() {
           <>
             <MetricCard
               label="Баланс" value={stats.totalBalance.toLocaleString('ru-RU')} sub="₽ на счетах"
-              icon={<Wallet className="w-6 h-6" />} iconBg="bg-[#00E5FF]/10 text-[#00E5FF]"
+              icon={<Wallet className="w-6 h-6" />} iconBg="bg-primary/10 text-primary"
             />
             <MetricCard
               label="Доходы" value={stats.totalIncome.toLocaleString('ru-RU')}
@@ -264,7 +264,7 @@ export default function DashboardPage() {
       <div className="glass-card rounded-2xl p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-semibold text-foreground">Последние транзакции</h2>
-          <Link href="/transactions" className="flex items-center gap-1 text-xs text-[#00E5FF] hover:underline font-medium">
+          <Link href="/transactions" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
             Все <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
         </div>

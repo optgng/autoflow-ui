@@ -244,7 +244,7 @@ export default function SettingsPage() {
           <button
             onClick={handleSaveProfile}
             disabled={profileSaving}
-            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
+            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#00874A] to-[#006B3B] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
           >
             {profileSaving ? <RefreshCw className="w-4 h-4 animate-spin" />
               : profileSaved ? <><Check className="w-4 h-4" /> Сохранено!</>
@@ -286,7 +286,7 @@ export default function SettingsPage() {
           <button
             onClick={handleChangePassword}
             disabled={pwdSaving || !currentPwd || !newPwd || !confirmPwd}
-            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
+            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#00874A] to-[#006B3B] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
           >
             {pwdSaving ? <RefreshCw className="w-4 h-4 animate-spin" />
               : pwdSaved ? <><Check className="w-4 h-4" /> Изменён!</>
@@ -317,8 +317,8 @@ export default function SettingsPage() {
       {tab === 'integrations' && (
         <div className="glass-card rounded-2xl p-6 space-y-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#00E5FF]/10 flex items-center justify-center">
-              <Send className="w-5 h-5 text-[#00E5FF]" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Send className="w-5 h-5 text-primary" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-foreground">Telegram</h2>
@@ -366,7 +366,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleGenerateLink}
                 disabled={tgLoading}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/40 text-sm text-[#00E5FF] hover:bg-[#00E5FF]/20 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/40 text-sm text-primary hover:bg-[#00E5FF]/20 transition-all disabled:opacity-50"
               >
                 {tgLoading
                   ? <span className="w-4 h-4 border-2 border-[#00E5FF]/30 border-t-[#00E5FF] rounded-full animate-spin" />
@@ -387,7 +387,7 @@ export default function SettingsPage() {
                 href={tgLinkData.deep_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-opacity"
+                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-gradient-to-r from-[#00874A] to-[#006B3B] text-black text-sm font-semibold hover:opacity-90 transition-opacity"
               >
                 <ExternalLink className="w-4 h-4" />
                 Открыть Telegram бота
