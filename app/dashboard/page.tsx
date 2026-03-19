@@ -44,16 +44,16 @@ export default function DashboardPage() {
       setIsLoading(true);
       try {
         const now = new Date();
-        const dateto = now.toISOString().split('T')[0];
-        const datefrom = new Date(now.getTime() - period * 86400000)
+        const dateTo = now.toISOString().split('T')[0];
+        const dateFrom = new Date(now.getTime() - period * 86400000)
           .toISOString().split('T')[0];
 
         // Один запрос — получаем все транзакции за период
         const txRes = await apiClient.get('/transactions', {
           params: {
-            datefrom,      // ← без подчёркивания
-            dateto,        // ← без подчёркивания
-            pagesize: 500, // ← без подчёркивания
+            date_from: dateFrom,      // ← без подчёркивания
+            date_to: dateTo,        // ← без подчёркивания
+            page_size: 500, // ← без подчёркивания
             page: 1,
           },
         });
@@ -138,8 +138,8 @@ export default function DashboardPage() {
             За {period} дней <ChevronDown className="w-4 h-4 text-default-400" />
           </button>
           {periodOpen && (
-            <div className="absolute right-0 mt-2 w-44 glass-card rounded-xl py-1 z-50 shadow-lg backdrop-blur-2xl">
-              {PERIODS.map((p) => (
+            <div className="absolute right-0 mt-2 w-44 glass-dropdown rounded-xl py-1 z-50 shadow-lg animate-dropdown">
+	      {PERIODS.map((p) => (
                 <button
                   key={p}
                   onClick={() => { setPeriod(p); setPeriodOpen(false); }}

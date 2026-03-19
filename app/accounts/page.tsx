@@ -5,6 +5,8 @@ import {
   X, Check, RefreshCw, AlertCircle, Trash2,  // ← добавить Trash2
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import SelectField from '@/components/ui/SelectField';
+import ModalPortal from '@/components/ui/ModalPortal';
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +43,11 @@ const TYPE_ICONS: Record<AccountType, React.ReactNode> = {
 };
 
 const CURRENCIES = ['RUB', 'USD', 'EUR', 'GBP', 'CNY'] as const;
+const CURRENCY_OPTIONS = CURRENCIES.map(c => ({ value: c, label: c }));
+const ACCOUNT_TYPE_OPTIONS = [
+  { value: 'card',         label: 'Карта' },
+  { value: 'bank_account', label: 'Счёт в банке' },
+];
 
 // ─── Хелперы ─────────────────────────────────────────────────────────────────
 
@@ -201,8 +208,8 @@ export default function AccountsPage() {
           <RefreshCw className="w-6 h-6 animate-spin text-default-400" />
         </div>
       ) : accounts.length === 0 ? (
-        <div className="glass-card rounded-2xl p-12 text-center text-default-400">
-          <Wallet className="w-12 h-12 mx-auto mb-3 opacity-30" />
+        <div className="glass-card rounded-2xl p-6 w-full max-w-sm space-y-4 animate-modal-content">
+	  <Wallet className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="font-medium">Счета не найдены</p>
           <p className="text-sm mt-1">
             Загрузите выписку через Telegram бота — счета появятся автоматически
@@ -231,16 +238,12 @@ export default function AccountsPage() {
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs text-default-400">Валюта</label>
-                      <select
-                        value={editCurrency}
-                        onChange={e => setEditCurrency(e.target.value)}
-                        className="input-field h-9 text-sm"
-                      >
-                        {CURRENCIES.map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
+		      <SelectField
+			  value={editCurrency}
+			  onChange={setEditCurrency}
+			  options={CURRENCY_OPTIONS}
+		      />
+  		    </div>
                     {acc.account_type === 'cash' && (
                       <div className="space-y-1.5">
                         <label className="text-xs text-default-400">Баланс</label>
@@ -266,14 +269,11 @@ export default function AccountsPage() {
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-xs text-default-400">Тип</label>
-                          <select
-                            value={editType}
-                            onChange={e => setEditType(e.target.value as BankAccountType)}
-                            className="input-field h-9 text-sm"
-                          >
-                            <option value="card">Карта</option>
-                            <option value="bank_account">Счёт</option>
-                          </select>
+			    <SelectField
+      			      value={editType}
+      			      onChange={(v) => setEditType(v as BankAccountType)}
+      			      options={ACCOUNT_TYPE_OPTIONS}
+    			    />
                         </div>
                       </>
                     )}
@@ -357,104 +357,117 @@ export default function AccountsPage() {
 
       {/* ── Модал создания наличных ── */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="glass-card rounded-2xl p-6 w-full max-w-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-foreground">Добавить наличные</h2>
-              <button onClick={() => setShowCreate(false)} className="text-default-400 hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {error && (
-              <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4" /> {error}
-              </p>
-            )}
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-default-600">Название</label>
-                <input
-                  value={cashName}
-                  onChange={e => setCashName(e.target.value)}
-                  placeholder="Кошелёк"
-                  className="input-field"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-default-600">Валюта</label>
-                <select
-                  value={cashCurrency}
-                  onChange={e => setCashCurrency(e.target.value)}
-                  className="input-field"
-                >
-                  <option value="RUB">RUB — Российский рубль</option>
-                  <option value="USD">USD — Доллар США</option>
-                  <option value="EUR">EUR — Евро</option>
-                  <option value="GBP">GBP — Фунт стерлингов</option>
-                </select>
-              </div>
-            </div>
-            <button
-              onClick={handleCreate}
-              disabled={creating || !cashName.trim()}
-              className="w-full h-11 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Создать счёт'}
-            </button>
-          </div>
-        </div>
+	<ModalPortal>
+	  <div
+	    className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+	    onClick={() => { setShowCreate(false); setError(''); }}
+	  >
+	    <div className="absolute inset-0 bg-black/50 backdrop-blur-md animate-modal-overlay" />
+	    <div
+	      className="relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4 animate-modal-content"
+	      onClick={(e) => e.stopPropagation()}
+	    >
+	      <div className="flex items-center justify-between">
+		<h2 className="font-semibold text-foreground">Новый счёт (наличные)</h2>
+		<button onClick={() => setShowCreate(false)} className="text-default-400 hover:text-foreground">
+		  <X className="w-5 h-5" />
+		</button>
+	      </div>
+	      {error && (
+		<p className="text-sm text-[#FF3366] flex items-center gap-1.5">
+		  <AlertCircle className="w-4 h-4" /> {error}
+		</p>
+	      )}
+	      <div className="space-y-3">
+		<div className="space-y-1.5">
+		  <label className="text-sm font-medium text-default-600">Название</label>
+		  <input
+		    value={cashName}
+		    onChange={(e) => setCashName(e.target.value)}
+		    placeholder="Кошелёк"
+		    className="input-field"
+		  />
+		</div>
+		<div className="space-y-1.5">
+		  <label className="text-sm font-medium text-default-600">Валюта</label>
+		  <SelectField
+		    value={cashCurrency}
+		    onChange={setCashCurrency}
+		    options={CURRENCY_OPTIONS}
+		  />
+		</div>
+	      </div>
+	      <button
+		onClick={handleCreate}
+		disabled={creating || !cashName.trim()}
+		className="w-full h-11 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF]
+			   text-black text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+	      >
+		{creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Создать'}
+	      </button>
+	    </div>
+	  </div>
+	</ModalPortal>
       )}
-
       {/* ── Модал подтверждения удаления ── */}
       {deleteId !== null && (() => {
         const acc = accounts.find(a => a.id === deleteId);
         const isBankAcc = acc?.account_type !== 'cash';
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-            <div className="glass-card rounded-2xl p-6 w-full max-w-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-foreground">Удалить счёт?</h2>
-                <button onClick={() => setDeleteId(null)} className="text-default-400 hover:text-foreground">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              {error && (
-                <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4" /> {error}
-                </p>
-              )}
-              <div className="p-4 rounded-xl bg-content2 space-y-1">
-                <p className="font-medium text-foreground">{acc?.name}</p>
-                {acc?.last_four_digits && (
-                  <p className="text-xs text-default-400">•••• {acc.last_four_digits}</p>
-                )}
-              </div>
-              <p className="text-sm text-default-400">
-                {isBankAcc
-                  ? 'Банковский счёт будет деактивирован. История транзакций сохранится.'
-                  : 'Счёт наличных и все связанные данные будут удалены безвозвратно.'
-                }
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeleteId(null)}
-                  className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="flex-1 h-10 rounded-xl bg-[#FF3366] hover:bg-[#CC2952] text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {deleting
-                    ? <RefreshCw className="w-4 h-4 animate-spin" />
-                    : isBankAcc ? 'Деактивировать' : 'Удалить'
-                  }
-                </button>
-              </div>
-            </div>
-          </div>
+	  <ModalPortal>
+	    <div
+	      className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+	      onClick={() => { setDeleteId(null); setError(''); }}
+	    >
+	      <div className="absolute inset-0 bg-black/50 backdrop-blur-md animate-modal-overlay" />
+	      <div
+		className="relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4 animate-modal-content"
+		onClick={(e) => e.stopPropagation()}
+	      >
+		<div className="flex items-center justify-between">
+		  <h2 className="font-semibold text-foreground">Удалить счёт?</h2>
+		  <button onClick={() => setDeleteId(null)} className="text-default-400 hover:text-foreground">
+		    <X className="w-5 h-5" />
+		  </button>
+		</div>
+		{error && (
+		  <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
+		    <AlertCircle className="w-4 h-4" /> {error}
+		  </p>
+		)}
+		<div className="p-4 rounded-xl bg-content2 space-y-1">
+		  <p className="font-medium text-foreground">{acc?.name}</p>
+		  {acc?.last_four_digits && (
+		    <p className="text-xs text-default-400">•••• {acc.last_four_digits}</p>
+		  )}
+		</div>
+		<p className="text-sm text-default-400">
+		  {isBankAcc
+		    ? 'Банковский счёт будет деактивирован. История транзакций сохранится.'
+		    : 'Счёт наличных и все связанные данные будут удалены безвозвратно.'
+		  }
+		</p>
+		<div className="flex gap-3">
+		  <button
+		    onClick={() => setDeleteId(null)}
+		    className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
+		  >
+		    Отмена
+		  </button>
+		  <button
+		    onClick={handleDelete}
+		    disabled={deleting}
+		    className="flex-1 h-10 rounded-xl bg-[#FF3366] hover:bg-[#CC2952] text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+		  >
+		    {deleting
+		      ? <RefreshCw className="w-4 h-4 animate-spin" />
+		      : isBankAcc ? 'Деактивировать' : 'Удалить'
+		    }
+		  </button>
+		</div>
+	      </div>
+	    </div>
+	  </ModalPortal>
         );
       })()}
 

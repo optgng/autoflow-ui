@@ -284,46 +284,69 @@ File path: app/globals.css
 ================================================================================
 File path: app/login/page.tsx
 ================================================================================
-"use client";
+'use client';
+import { useState } from 'react';
+import { Eye, EyeOff, Wallet, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/lib/hooks/useAuth';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Wallet, AlertCircle } from "lucide-react";
+// Те же regex что и на бэкенде
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9_\-]{3,100}$/;
+
+function validateLogin(value: string): string | null {
+  if (!value.trim()) return 'Поле не может быть пустым';
+  if (value.includes('@')) {
+    if (!EMAIL_REGEX.test(value.trim()))
+      return 'Некорректный email. Ожидается формат: user@domain.com';
+  } else {
+    if (!USERNAME_REGEX.test(value.trim()))
+      return 'Некорректный username. Допускаются буквы, цифры, _ и -';
+  }
+  return null;
+}
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { login, isLoading, error } = useAuth();
+
+  const [loginValue, setLoginValue]     = useState('');
+  const [password, setPassword]         = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loginError, setLoginError]     = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const handleLoginBlur = () => {
+    setLoginError(validateLogin(loginValue));
+  };
+
+  const handlePasswordBlur = () => {
+    if (!password) setPasswordError('Пароль не может быть пустым');
+    else setPasswordError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
 
-    await new Promise((r) => setTimeout(r, 1200));
+    // Валидация перед отправкой
+    const loginErr = validateLogin(loginValue);
+    const passErr  = !password ? 'Пароль не может быть пустым' : null;
 
-    if (email === "user@autoflow.dev" && password === "password") {
-      router.push("/dashboard");
-    } else {
-      setError("Неверный email или пароль. Попробуйте user@autoflow.dev / password");
-      setLoading(false);
-    }
+    setLoginError(loginErr);
+    setPasswordError(passErr);
+
+    if (loginErr || passErr) return;
+
+    await login(loginValue.trim().toLowerCase(), password);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      {/* Background glow */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 60% 40% at 50% 50%, rgba(0,229,255,0.06) 0%, transparent 70%)",
+            'radial-gradient(ellipse 60% 40% at 50% 50%, rgba(0,229,255,0.06) 0%, transparent 70%)',
         }}
       />
-
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
@@ -331,14 +354,14 @@ export default function LoginPage() {
             <Wallet className="w-8 h-8 text-black" />
           </div>
           <h1 className="text-3xl font-bold gradient-text-primary">AutoFlow Finance</h1>
-          <p className="text-default-500 mt-1 text-sm">Персональная финансовая аналитика</p>
+          <p className="text-default-500 mt-1 text-sm">Управление личными финансами</p>
         </div>
 
         {/* Card */}
         <div className="glass-card rounded-2xl p-8">
-          <h2 className="text-xl font-bold mb-6 text-foreground">Войти в аккаунт</h2>
+          <h2 className="text-xl font-bold mb-6 text-foreground">Вход в систему</h2>
 
-          {/* Error alert */}
+          {/* Серверная ошибка */}
           {error && (
             <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/30 mb-6">
               <AlertCircle className="w-5 h-5 text-[#FF3366] flex-shrink-0 mt-0.5" />
@@ -346,21 +369,36 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email field */}
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+
+            {/* Login field */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-default-600" htmlFor="email">
-                Email или имя пользователя
+              <label className="text-sm font-medium text-default-600" htmlFor="login">
+                Email или username
               </label>
               <input
-                id="email"
+                id="login"
                 type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="user@autoflow.dev"
-                required
-                className="w-full h-12 px-4 rounded-xl bg-content2 border border-divider text-foreground placeholder:text-default-400 focus:outline-none focus:border-[#00E5FF] focus:ring-1 focus:ring-[#00E5FF]/40 transition-all text-sm"
+                value={loginValue}
+                onChange={(e) => {
+                  setLoginValue(e.target.value);
+                  if (loginError) setLoginError(validateLogin(e.target.value));
+                }}
+                onBlur={handleLoginBlur}
+                placeholder="user@example.com или username"
+                autoComplete="username"
+                className={`w-full h-12 px-4 rounded-xl bg-content2 border text-foreground placeholder:text-default-400 focus:outline-none focus:ring-1 transition-all text-sm ${
+                  loginError
+                    ? 'border-[#FF3366] focus:border-[#FF3366] focus:ring-[#FF3366]/40'
+                    : 'border-divider focus:border-[#00E5FF] focus:ring-[#00E5FF]/40'
+                }`}
               />
+              {loginError && (
+                <p className="text-xs text-[#FF3366] flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  {loginError}
+                </p>
+              )}
             </div>
 
             {/* Password field */}
@@ -371,56 +409,58 @@ export default function LoginPage() {
               <div className="relative">
                 <input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (passwordError && e.target.value) setPasswordError(null);
+                  }}
+                  onBlur={handlePasswordBlur}
                   placeholder="••••••••"
-                  required
-                  className="w-full h-12 px-4 pr-12 rounded-xl bg-content2 border border-divider text-foreground placeholder:text-default-400 focus:outline-none focus:border-[#00E5FF] focus:ring-1 focus:ring-[#00E5FF]/40 transition-all text-sm"
+                  autoComplete="current-password"
+                  className={`w-full h-12 px-4 pr-12 rounded-xl bg-content2 border text-foreground placeholder:text-default-400 focus:outline-none focus:ring-1 transition-all text-sm ${
+                    passwordError
+                      ? 'border-[#FF3366] focus:border-[#FF3366] focus:ring-[#FF3366]/40'
+                      : 'border-divider focus:border-[#00E5FF] focus:ring-[#00E5FF]/40'
+                  }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-default-400 hover:text-default-600 transition-colors p-1"
-                  aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword
+                    ? <EyeOff className="w-5 h-5" />
+                    : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+              {passwordError && (
+                <p className="text-xs text-[#FF3366] flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  {passwordError}
+                </p>
+              )}
             </div>
 
-            {/* Submit button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={isLoading}
               className="w-full h-12 rounded-xl font-semibold text-sm transition-all bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-glow mt-2"
             >
-              {loading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                  Вход...
-                </>
-              ) : (
-                "Войти"
-              )}
+              {isLoading
+                ? <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                : 'Войти'
+              }
             </button>
           </form>
-
-          {/* Forgot password */}
-          <div className="mt-5 text-center">
-            <button className="text-sm text-[#00E5FF] hover:underline transition-all">
-              Забыли пароль?
-            </button>
-          </div>
         </div>
-
-        <p className="text-center text-xs text-default-400 mt-6">
-          Демо: user@autoflow.dev / password
-        </p>
       </div>
     </div>
   );
 }
+
 
 
 
@@ -476,66 +516,136 @@ export default function RootLayout({
 ================================================================================
 File path: app/dashboard/page.tsx
 ================================================================================
-"use client";
+'use client';
+import { useEffect, useState } from 'react';
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, ChevronDown, ArrowUpRight } from 'lucide-react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  PieChart, Pie, Cell, ResponsiveContainer
+} from 'recharts';
+import Link from 'next/link';
+import { apiClient } from '@/lib/api';
+import { formatDateUI } from '@/lib/types';
+import type { Transaction, Account, Category } from '@/lib/types';
+import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal';
 
-import { useState } from "react";
-import {
-  Wallet,
-  TrendingUp,
-  TrendingDown,
-  PiggyBank,
-  ChevronDown,
-  ArrowUpRight,
-} from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  mockChartData,
-  mockCategoryExpenses,
-  mockTransactions,
-  type Transaction,
-} from "@/lib/mock-data";
-import TransactionDetailModal from "@/components/dashboard/TransactionDetailModal";
-import Link from "next/link";
+// ─── Типы ответов аналитики ───────────────────────────────────────────────────
+interface DashboardStats {
+  totalIncome: number;
+  totalExpense: number;
+  totalBalance: number;
+}
 
-const PERIODS = ["Последние 7 дней", "Текущий месяц", "Квартал"] as const;
+interface ChartPoint { date: string; income: number; expense: number; }
+interface CategoryStat { name: string; value: number; color: string; }
+
+const CHART_COLORS = ['#00E5FF', '#FF3366', '#00FFA3', '#FFB800', '#0066FF', '#FF6600'];
+const PERIODS = [7, 14, 30, 90] as const;
+
+// ─── Скелетон-заглушка пока грузится ─────────────────────────────────────────
+function SkeletonCard() {
+  return <div className="glass-card rounded-2xl p-5 shimmer h-32" />;
+}
 
 export default function DashboardPage() {
-  const [period, setPeriod] = useState<(typeof PERIODS)[number]>("Текущий месяц");
+  const [period, setPeriod] = useState<(typeof PERIODS)[number]>(30);
   const [periodOpen, setPeriodOpen] = useState(false);
+  const [stats, setStats] = useState<DashboardStats>({ totalIncome: 0, totalExpense: 0, totalBalance: 0 });
+  const [chartData, setChartData] = useState<ChartPoint[]>([]);
+  const [categoryData, setCategoryData] = useState<CategoryStat[]>([]);
+  const [recentTx, setRecentTx] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const now = new Date();
+        const dateto = now.toISOString().split('T')[0];
+        const datefrom = new Date(now.getTime() - period * 86400000)
+          .toISOString().split('T')[0];
 
-  const totalIncome = 180000;
-  const totalExpense = 87550;
-  const totalBalance = 252450;
-  const saved = totalIncome - totalExpense;
-  const savedPct = Math.round((saved / totalIncome) * 100);
+        // Один запрос — получаем все транзакции за период
+        const txRes = await apiClient.get('/transactions', {
+          params: {
+            datefrom,      // ← без подчёркивания
+            dateto,        // ← без подчёркивания
+            pagesize: 500, // ← без подчёркивания
+            page: 1,
+          },
+        });
 
-  const recentTx = mockTransactions.slice(0, 5);
+        const allTx = txRes.data.items ?? [];
+
+        // Считаем totals на фронте
+        let totalIncome = 0;
+        let totalExpense = 0;
+        for (const tx of allTx) {
+          if (tx.transaction_type === 'income')  totalIncome  += Number(tx.amount);
+          if (tx.transaction_type === 'expense') totalExpense += Number(tx.amount);
+        }
+
+        // Баланс — реальный эндпоинт существует
+        const balanceRes = await apiClient.get('/accounts/total-balance');
+        const totalBalance = Number(balanceRes.data?.total_balance ?? 0);
+
+        setStats({ totalIncome, totalExpense, totalBalance });
+
+        // Последние 5 транзакций — просто берём из того же списка
+        setRecentTx(allTx.slice(0, 5));
+
+        // Категории расходов — группируем на фронте
+        const catMap: Record<string, number> = {};
+        for (const tx of allTx) {
+          if (tx.transaction_type !== 'expense') continue;
+          const name = tx.category?.name ?? 'Прочее';
+          catMap[name] = (catMap[name] ?? 0) + Number(tx.amount);
+        }
+        const cats = Object.entries(catMap).map(([name, value], i) => ({
+          name,
+          value,
+          color: CHART_COLORS[i % CHART_COLORS.length],
+        }));
+        setCategoryData(cats);
+
+        // График по дням — группируем на фронте
+        const byDate: Record<string, { income: number; expense: number }> = {};
+        for (const tx of allTx) {
+          const d = formatDateUI(tx.transaction_date);
+          if (!byDate[d]) byDate[d] = { income: 0, expense: 0 };
+          if (tx.transaction_type === 'income')  byDate[d].income  += Number(tx.amount);
+          if (tx.transaction_type === 'expense') byDate[d].expense += Number(tx.amount);
+        }
+        setChartData(
+          Object.entries(byDate)
+            .map(([date, v]) => ({ date, ...v }))
+            .slice(-14)
+        );
+
+      } catch (err) {
+        console.error('Dashboard load error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [period]);
+
+  
+  const saved = stats.totalIncome - stats.totalExpense;
+  const savedPct = stats.totalIncome > 0
+    ? Math.round((saved / stats.totalIncome) * 100)
+    : 0;
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <nav className="text-xs text-default-400 mb-1">
-            <span>Dashboard</span>
-          </nav>
-          <h1 className="text-3xl font-bold text-foreground text-balance">
-            Добро пожаловать, AutoFlow User
-          </h1>
-          <p className="text-default-500 text-sm mt-1">Обзор ваших финансов</p>
+          <nav className="text-xs text-default-400 mb-1"><span>Dashboard</span></nav>
+          <h1 className="text-3xl font-bold text-foreground">Обзор финансов</h1>
+          <p className="text-default-500 text-sm mt-1">Актуальные данные за последние {period} дней</p>
         </div>
         {/* Period selector */}
         <div className="relative">
@@ -543,23 +653,17 @@ export default function DashboardPage() {
             onClick={() => setPeriodOpen(!periodOpen)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors"
           >
-            {period}
-            <ChevronDown className="w-4 h-4 text-default-400" />
+            За {period} дней <ChevronDown className="w-4 h-4 text-default-400" />
           </button>
           {periodOpen && (
-            <div className="absolute right-0 mt-2 w-52 glass-card rounded-xl py-1 z-50 shadow-lg">
+            <div className="absolute right-0 mt-2 w-44 glass-card rounded-xl py-1 z-50 shadow-lg">
               {PERIODS.map((p) => (
                 <button
                   key={p}
-                  onClick={() => {
-                    setPeriod(p);
-                    setPeriodOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${
-                    p === period ? "text-[#00E5FF] font-medium" : "text-foreground"
-                  }`}
+                  onClick={() => { setPeriod(p); setPeriodOpen(false); }}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${period === p ? 'text-[#00E5FF] font-medium' : 'text-foreground'}`}
                 >
-                  {p}
+                  За {p} дней
                 </button>
               ))}
             </div>
@@ -569,230 +673,165 @@ export default function DashboardPage() {
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        {/* Balance */}
-        <MetricCard
-          label="Общий баланс"
-          value={`${totalBalance.toLocaleString("ru-RU")} ₽`}
-          sub="на всех счетах"
-          icon={<Wallet className="w-6 h-6" />}
-          iconBg="bg-[#00E5FF]/10 text-[#00E5FF]"
-        />
-        {/* Income */}
-        <MetricCard
-          label="Доходы"
-          value={`${totalIncome.toLocaleString("ru-RU")} ₽`}
-          badge="+12% к прошлому месяцу"
-          badgeColor="text-[#00FFA3]"
-          icon={<TrendingUp className="w-6 h-6" />}
-          iconBg="bg-[#00FFA3]/10 text-[#00FFA3]"
-        />
-        {/* Expense */}
-        <MetricCard
-          label="Расходы"
-          value={`${totalExpense.toLocaleString("ru-RU")} ₽`}
-          badge="-8% к прошлому месяцу"
-          badgeColor="text-[#FF3366]"
-          icon={<TrendingDown className="w-6 h-6" />}
-          iconBg="bg-[#FF3366]/10 text-[#FF3366]"
-        />
-        {/* Saved */}
-        <div className="glass-card rounded-2xl p-5 hover-lift">
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <p className="text-xs text-default-500 font-medium uppercase tracking-wide">
-                Сэкономлено
-              </p>
-              <p className="text-2xl font-bold mt-1 text-foreground">
-                {saved.toLocaleString("ru-RU")} ₽
-              </p>
-              <p className="text-xs text-default-400 mt-0.5">{savedPct}% от дохода</p>
-            </div>
-            <div className="w-11 h-11 rounded-xl bg-[#FFB800]/10 text-[#FFB800] flex items-center justify-center flex-shrink-0">
-              <PiggyBank className="w-6 h-6" />
-            </div>
-          </div>
-          {/* Progress bar */}
-          <div className="h-2 bg-content3 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[#FFB800] rounded-full transition-all"
-              style={{ width: `${savedPct}%` }}
+        {isLoading ? (
+          Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)
+        ) : (
+          <>
+            <MetricCard
+              label="Баланс" value={stats.totalBalance.toLocaleString('ru-RU')} sub="₽ на счетах"
+              icon={<Wallet className="w-6 h-6" />} iconBg="bg-[#00E5FF]/10 text-[#00E5FF]"
             />
-          </div>
-        </div>
-      </div>
-
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Line chart */}
-        <div className="glass-card rounded-2xl p-6 lg:col-span-3">
-          <h2 className="text-base font-semibold mb-5 text-foreground">
-            Динамика доходов и расходов
-          </h2>
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={mockChartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: "#9CA3AF", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: "#9CA3AF", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                width={36}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "#111113",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "12px",
-                  fontSize: 12,
-                }}
-                formatter={(value: number) => [`${value.toLocaleString("ru-RU")} ₽`]}
-                labelStyle={{ color: "#9CA3AF" }}
-              />
-              <Legend
-                wrapperStyle={{ fontSize: 12, paddingTop: "12px" }}
-                formatter={(v) => (v === "income" ? "Доходы" : "Расходы")}
-              />
-              <Line
-                type="monotone"
-                dataKey="income"
-                stroke="#00FFA3"
-                strokeWidth={2}
-                dot={{ r: 3, fill: "#00FFA3" }}
-                activeDot={{ r: 5 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="expense"
-                stroke="#FF3366"
-                strokeWidth={2}
-                dot={{ r: 3, fill: "#FF3366" }}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Pie chart */}
-        <div className="glass-card rounded-2xl p-6 lg:col-span-2">
-          <h2 className="text-base font-semibold mb-5 text-foreground">
-            Расходы по категориям
-          </h2>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie
-                data={mockCategoryExpenses}
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={75}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {mockCategoryExpenses.map((entry, idx) => (
-                  <Cell key={idx} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  background: "#111113",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "12px",
-                  fontSize: 12,
-                }}
-                formatter={(value: number) => [`${value.toLocaleString("ru-RU")} ₽`]}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-          {/* Legend */}
-          <div className="space-y-2 mt-3">
-            {mockCategoryExpenses.map((c, i) => {
-              const total = mockCategoryExpenses.reduce((s, x) => s + x.value, 0);
-              const pct = Math.round((c.value / total) * 100);
-              return (
-                <div key={i} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                      style={{ background: c.color }}
-                    />
-                    <span className="text-default-500">{c.name}</span>
-                  </div>
-                  <span className="font-medium text-foreground">{pct}%</span>
+            <MetricCard
+              label="Доходы" value={stats.totalIncome.toLocaleString('ru-RU')}
+              icon={<TrendingUp className="w-6 h-6" />} iconBg="bg-[#00FFA3]/10 text-[#00FFA3]"
+            />
+            <MetricCard
+              label="Расходы" value={stats.totalExpense.toLocaleString('ru-RU')}
+              icon={<TrendingDown className="w-6 h-6" />} iconBg="bg-[#FF3366]/10 text-[#FF3366]"
+            />
+            {/* Накоплено */}
+            <div className="glass-card rounded-2xl p-5 hover-lift">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Накоплено</p>
+                  <p className="text-2xl font-bold mt-1 text-foreground">
+                    {saved.toLocaleString('ru-RU')}
+                  </p>
+                  <p className="text-xs text-default-400 mt-0.5">{savedPct}% от доходов</p>
                 </div>
-              );
-            })}
-          </div>
+                <div className="w-11 h-11 rounded-xl bg-[#FFB800]/10 text-[#FFB800] flex items-center justify-center flex-shrink-0">
+                  <PiggyBank className="w-6 h-6" />
+                </div>
+              </div>
+              <div className="h-2 bg-content3 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#FFB800] rounded-full transition-all"
+                  style={{ width: `${Math.min(savedPct, 100)}%` }}
+                />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        <div className="glass-card rounded-2xl p-6 lg:col-span-3">
+          <h2 className="text-base font-semibold mb-5 text-foreground">Доходы и расходы</h2>
+          {isLoading ? (
+            <div className="h-60 shimmer rounded-xl" />
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                <XAxis dataKey="date" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false}
+                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={36} />
+                <Tooltip
+                  contentStyle={{ background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 12 }}
+                  formatter={(value: number) => value.toLocaleString('ru-RU')}
+                />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
+                <Line type="monotone" dataKey="income" name="Доходы" stroke="#00FFA3" strokeWidth={2} dot={{ r: 3, fill: '#00FFA3' }} />
+                <Line type="monotone" dataKey="expense" name="Расходы" stroke="#FF3366" strokeWidth={2} dot={{ r: 3, fill: '#FF3366' }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="glass-card rounded-2xl p-6 lg:col-span-2">
+          <h2 className="text-base font-semibold mb-5 text-foreground">Категории расходов</h2>
+          {isLoading || categoryData.length === 0 ? (
+            <div className="h-40 shimmer rounded-xl" />
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
+                    {categoryData.map((entry, idx) => (
+                      <Cell key={idx} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 12 }}
+                    formatter={(v: number) => v.toLocaleString('ru-RU')}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2 mt-3">
+                {categoryData.map((c, i) => {
+                  const total = categoryData.reduce((s, x) => s + x.value, 0);
+                  const pct = Math.round((c.value / total) * 100);
+                  return (
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                        <span className="text-default-500">{c.name}</span>
+                      </div>
+                      <span className="font-medium text-foreground">{pct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Recent transactions */}
+      {/* Recent Transactions */}
       <div className="glass-card rounded-2xl p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-foreground">Последние операции</h2>
-          <Link
-            href="/transactions"
-            className="flex items-center gap-1 text-xs text-[#00E5FF] hover:underline font-medium"
-          >
-            Все транзакции
-            <ArrowUpRight className="w-3.5 h-3.5" />
+          <h2 className="text-base font-semibold text-foreground">Последние транзакции</h2>
+          <Link href="/transactions" className="flex items-center gap-1 text-xs text-[#00E5FF] hover:underline font-medium">
+            Все <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-divider">
-                <th className="text-left text-xs text-default-400 font-medium pb-3 pr-4">
-                  Дата и время
-                </th>
-                <th className="text-left text-xs text-default-400 font-medium pb-3 pr-4">
-                  Категория
-                </th>
-                <th className="text-left text-xs text-default-400 font-medium pb-3 pr-4">
-                  Место покупки
-                </th>
-                <th className="text-right text-xs text-default-400 font-medium pb-3">
-                  Сумма
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentTx.map((tx) => (
-                <tr
-                  key={tx.id}
-                  onClick={() => setSelectedTx(tx)}
-                  className="border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer"
-                >
-                  <td className="py-3.5 pr-4 text-default-400 whitespace-nowrap">
-                    {tx.date} {tx.time}
-                  </td>
-                  <td className="py-3.5 pr-4">
-                    <span className="px-2.5 py-0.5 rounded-lg bg-content2 text-xs font-medium text-default-600">
-                      {tx.category}
-                    </span>
-                  </td>
-                  <td className="py-3.5 pr-4 font-medium text-foreground">{tx.merchant}</td>
-                  <td className="py-3.5 text-right font-semibold tabular-nums">
-                    <span
-                      className={tx.amount > 0 ? "text-[#00FFA3]" : "text-[#FF3366]"}
-                    >
-                      {tx.amount > 0 ? "+" : ""}
-                      {tx.amount.toLocaleString("ru-RU")} ₽
-                    </span>
-                  </td>
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array(5).fill(0).map((_, i) => <div key={i} className="h-12 shimmer rounded-xl" />)}
+          </div>
+        ) : recentTx.length === 0 ? (
+          <p className="text-center text-default-400 py-8 text-sm">Транзакций пока нет</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-divider">
+                  {['Дата', 'Категория', 'Описание', 'Сумма'].map((h) => (
+                    <th key={h} className="text-left text-xs text-default-400 font-medium pb-3 pr-4 last:text-right">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {recentTx.map((tx) => (
+                  <tr
+                    key={tx.id}
+                    onClick={() => setSelectedTx(tx)}
+                    className="border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer"
+                  >
+                    <td className="py-3.5 pr-4 text-default-400 whitespace-nowrap">
+                      {formatDateUI(tx.transaction_date)}
+                    </td>
+                    <td className="py-3.5 pr-4">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-content2 text-xs font-medium text-default-600">
+                        {tx.category?.name ?? '—'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 pr-4 font-medium text-foreground">
+                      {tx.merchant ?? tx.description ?? '—'}
+                    </td>
+                    <td className={`py-3.5 text-right font-semibold tabular-nums ${tx.transaction_type === 'income' ? 'text-[#00FFA3]' : 'text-[#FF3366]'}`}>
+                      {tx.transaction_type === 'income' ? '+' : '-'}
+                      {Number(tx.amount).toLocaleString('ru-RU')} ₽
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Modal */}
       {selectedTx && (
         <TransactionDetailModal tx={selectedTx} onClose={() => setSelectedTx(null)} />
       )}
@@ -800,38 +839,17 @@ export default function DashboardPage() {
   );
 }
 
-// ─── MetricCard sub-component ────────────────────────────────────────────────
-
-function MetricCard({
-  label,
-  value,
-  sub,
-  badge,
-  badgeColor,
-  icon,
-  iconBg,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  badge?: string;
-  badgeColor?: string;
-  icon: React.ReactNode;
-  iconBg: string;
+function MetricCard({ label, value, sub, icon, iconBg }: {
+  label: string; value: string; sub?: string; icon: React.ReactNode; iconBg: string;
 }) {
   return (
     <div className="glass-card rounded-2xl p-5 hover-lift">
       <div className="flex items-start justify-between mb-3">
         <p className="text-xs text-default-500 font-medium uppercase tracking-wide">{label}</p>
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-          {icon}
-        </div>
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>{icon}</div>
       </div>
       <p className="text-2xl font-bold text-foreground">{value}</p>
       {sub && <p className="text-xs text-default-400 mt-1">{sub}</p>}
-      {badge && (
-        <p className={`text-xs mt-1 font-medium ${badgeColor}`}>{badge}</p>
-      )}
     </div>
   );
 }
@@ -841,138 +859,67 @@ function MetricCard({
 ================================================================================
 File path: app/transactions/page.tsx
 ================================================================================
-"use client";
-
-import { useState, useMemo } from "react";
-import {
-  Search,
-  X,
-  Upload,
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
-  FileSearch,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { mockTransactions, type Transaction } from "@/lib/mock-data";
-import TransactionDetailModal from "@/components/dashboard/TransactionDetailModal";
-
-const CATEGORIES = [
-  "Все",
-  "Супермаркеты",
-  "Такси",
-  "Кафе",
-  "ЖКХ",
-  "Развлечения",
-  "Покупки",
-  "Зарплата",
-  "Возвраты",
-  "Транспорт",
-  "Подписки",
-];
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { Search, X, ChevronUp, ChevronDown, FileSearch, ChevronLeft, ChevronRight } from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import { formatDateUI } from '@/lib/types';
+import type { Transaction, Category, TransactionType } from '@/lib/types';
+import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal';
 
 const PAGE_SIZES = [10, 25, 50] as const;
-
-type SortKey = keyof Pick<Transaction, "date" | "amount" | "merchant" | "category">;
-type SortDir = "asc" | "desc";
+type SortDir = 'asc' | 'desc';
 
 export default function TransactionsPage() {
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
-  const [categoryFilter, setCategoryFilter] = useState("Все");
-  const [sortKey, setSortKey] = useState<SortKey>("date");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);   // ← отдельный стейт
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | TransactionType>('all');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
-  const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(1);  // ← отдельный стейт
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [modalTx, setModalTx] = useState<Transaction | null>(null);
 
-  // Filter
-  const filtered = useMemo(() => {
-    return mockTransactions.filter((tx) => {
-      const matchSearch =
-        !search ||
-        tx.merchant.toLowerCase().includes(search.toLowerCase()) ||
-        tx.category.toLowerCase().includes(search.toLowerCase());
-      const matchType =
-        typeFilter === "all" ||
-        (typeFilter === "income" && tx.type === "income") ||
-        (typeFilter === "expense" && tx.type === "expense");
-      const matchCategory =
-        categoryFilter === "Все" || tx.category === categoryFilter;
-      return matchSearch && matchType && matchCategory;
-    });
-  }, [search, typeFilter, categoryFilter]);
+  // Загрузка категорий (единожды)
+  useEffect(() => {
+    apiClient.get('/categories').then((r) => setCategories(r.data ?? []));
+  }, []);
 
-  // Sort
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      let av: string | number = a[sortKey];
-      let bv: string | number = b[sortKey];
-      if (sortKey === "amount") {
-        av = a.amount;
-        bv = b.amount;
-      } else if (sortKey === "date") {
-        // parse DD.MM.YYYY
-        const parseDate = (d: string) => {
-          const [day, month, year] = d.split(".");
-          return new Date(`${year}-${month}-${day}`).getTime();
-        };
-        av = parseDate(a.date);
-        bv = parseDate(b.date);
-      }
-      if (av < bv) return sortDir === "asc" ? -1 : 1;
-      if (av > bv) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [filtered, sortKey, sortDir]);
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params: Record<string, string | number> = {
+        page,
+        page_size: pageSize,
+      };
+      if (typeFilter !== 'all') params.transaction_type = typeFilter;
+      if (categoryFilter) params.categoryid = categoryFilter;
+      if (search) params.search = search;
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const paginated = sorted.slice((page - 1) * pageSize, page * pageSize);
+      const res = await apiClient.get('/transactions', { params });
 
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
+      setTransactions(res.data.items ?? []);
+      setTotal(res.data.total ?? 0);
+      setTotalPages(res.data.totalpages ?? 1);  // ← сохраняем в стейт здесь, где res доступен
+    } finally {
+      setIsLoading(false);
     }
-    setPage(1);
-  };
+  }, [page, pageSize, typeFilter, categoryFilter, search]);
 
-  const toggleSelect = (id: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  useEffect(() => { load(); }, [load]);
 
-  const toggleSelectAll = () => {
-    if (selected.size === paginated.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(paginated.map((t) => t.id)));
-    }
-  };
+  const resetPage = () => setPage(1);
 
-  const resetFilters = () => {
-    setSearch("");
-    setTypeFilter("all");
-    setCategoryFilter("Все");
-    setPage(1);
-  };
-
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ChevronsUpDown className="w-3.5 h-3.5 text-default-400" />;
-    return sortDir === "asc" ? (
-      <ChevronUp className="w-3.5 h-3.5 text-[#00E5FF]" />
-    ) : (
-      <ChevronDown className="w-3.5 h-3.5 text-[#00E5FF]" />
-    );
-  };
+  const sorted = [...transactions].sort((a, b) => {
+    const av = new Date(a.transaction_date).getTime();
+    const bv = new Date(b.transaction_date).getTime();
+    return sortDir === 'asc' ? av - bv : bv - av;
+  });
 
   return (
     <div className="space-y-6">
@@ -980,16 +927,10 @@ export default function TransactionsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <nav className="text-xs text-default-400 mb-1">
-            <span>Dashboard</span>
-            <span className="mx-1.5">/</span>
-            <span className="text-foreground">Транзакции</span>
+            <span>Dashboard</span><span className="mx-1.5">/</span><span className="text-foreground">Транзакции</span>
           </nav>
           <h1 className="text-3xl font-bold text-foreground">Транзакции</h1>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 text-[#00E5FF] text-sm font-medium hover:bg-[#00E5FF]/20 transition-colors">
-          <Upload className="w-4 h-4" />
-          Импортировать выписку
-        </button>
       </div>
 
       {/* Filters */}
@@ -1000,31 +941,24 @@ export default function TransactionsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-default-400" />
             <input
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Поиск по месту и категории..."
+              onChange={(e) => { setSearch(e.target.value); resetPage(); }}
+              placeholder="Поиск по описанию, продавцу..."
               className="w-full h-10 pl-9 pr-4 rounded-xl bg-content2 border border-divider text-sm placeholder:text-default-400 focus:outline-none focus:border-[#00E5FF] transition-all"
             />
           </div>
 
           {/* Type filter */}
           <div className="flex rounded-xl overflow-hidden border border-divider h-10">
-            {(["all", "income", "expense"] as const).map((t) => (
+            {(['all', 'income', 'expense'] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => {
-                  setTypeFilter(t);
-                  setPage(1);
-                }}
-                className={`px-4 text-sm font-medium transition-colors ${
-                  typeFilter === t
-                    ? "bg-content3 text-foreground"
-                    : "bg-content2 text-default-400 hover:bg-content3"
-                }`}
+                onClick={() => { setTypeFilter(t); resetPage(); }}
+                className={`px-4 text-sm font-medium transition-colors ${typeFilter === t
+                  ? 'bg-content3 text-foreground'
+                  : 'bg-content2 text-default-400 hover:bg-content3'
+                  }`}
               >
-                {t === "all" ? "Все" : t === "income" ? "Доходы" : "Расходы"}
+                {t === 'all' ? 'Все' : t === 'income' ? 'Доходы' : 'Расходы'}
               </button>
             ))}
           </div>
@@ -1032,26 +966,21 @@ export default function TransactionsPage() {
           {/* Category select */}
           <select
             value={categoryFilter}
-            onChange={(e) => {
-              setCategoryFilter(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => { setCategoryFilter(e.target.value); resetPage(); }}
             className="h-10 px-3 rounded-xl bg-content2 border border-divider text-sm text-foreground focus:outline-none focus:border-[#00E5FF] transition-all"
           >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+            <option value="">Все категории</option>
+            {categories.map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
             ))}
           </select>
 
           {/* Reset */}
           <button
-            onClick={resetFilters}
+            onClick={() => { setSearch(''); setTypeFilter('all'); setCategoryFilter(''); resetPage(); }}
             className="flex items-center gap-1.5 px-3.5 h-10 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-foreground hover:bg-content3 transition-colors"
           >
-            <X className="w-3.5 h-3.5" />
-            Сбросить
+            <X className="w-3.5 h-3.5" /> Сбросить
           </button>
         </div>
       </div>
@@ -1062,132 +991,78 @@ export default function TransactionsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-divider bg-content2/50">
-                <th className="pl-5 pr-3 py-4 w-10">
-                  <input
-                    type="checkbox"
-                    checked={
-                      paginated.length > 0 && selected.size === paginated.length
-                    }
-                    onChange={toggleSelectAll}
-                    className="rounded border-divider accent-[#00E5FF] cursor-pointer"
-                  />
+                <th className="px-5 py-4 text-left">
+                  <button
+                    onClick={() => setSortDir((d) => d === 'asc' ? 'desc' : 'asc')}
+                    className="flex items-center gap-1.5 text-xs font-medium text-default-400"
+                  >
+                    Дата {sortDir === 'asc'
+                      ? <ChevronUp className="w-3.5 h-3.5 text-[#00E5FF]" />
+                      : <ChevronDown className="w-3.5 h-3.5 text-[#00E5FF]" />}
+                  </button>
                 </th>
-                <th
-                  className="px-3 py-4 text-left cursor-pointer select-none"
-                  onClick={() => toggleSort("date")}
-                >
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-default-400">
-                    Дата и время
-                    <SortIcon col="date" />
-                  </div>
-                </th>
-                <th
-                  className="px-3 py-4 text-left cursor-pointer select-none"
-                  onClick={() => toggleSort("category")}
-                >
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-default-400">
-                    Категория
-                    <SortIcon col="category" />
-                  </div>
-                </th>
-                <th
-                  className="px-3 py-4 text-left cursor-pointer select-none"
-                  onClick={() => toggleSort("merchant")}
-                >
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-default-400">
-                    Место покупки
-                    <SortIcon col="merchant" />
-                  </div>
-                </th>
-                <th className="px-3 py-4 text-left text-xs font-medium text-default-400">
-                  Счет
-                </th>
-                <th
-                  className="px-3 py-4 text-right cursor-pointer select-none"
-                  onClick={() => toggleSort("amount")}
-                >
-                  <div className="flex items-center justify-end gap-1.5 text-xs font-medium text-default-400">
-                    Сумма
-                    <SortIcon col="amount" />
-                  </div>
-                </th>
-                <th className="px-3 py-4 text-right text-xs font-medium text-default-400">
-                  Баланс после
-                </th>
-                <th className="pr-5 py-4 w-10" />
+                {['Категория', 'Описание', 'Счёт', 'Сумма', 'Тип'].map((h) => (
+                  <th key={h} className="px-3 py-4 text-left text-xs font-medium text-default-400">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {isLoading ? (
+                Array(pageSize).fill(0).map((_, i) => (
+                  <tr key={i} className="border-b border-divider/40">
+                    {Array(6).fill(0).map((_, j) => (
+                      <td key={j} className="px-3 py-3.5">
+                        <div className="h-4 shimmer rounded w-full" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={6}>
                     <div className="flex flex-col items-center justify-center py-16 text-center">
                       <FileSearch className="w-12 h-12 text-default-300 mb-3" />
                       <p className="text-default-500 font-medium">Ничего не найдено</p>
-                      <p className="text-sm text-default-400 mt-1">
-                        Попробуйте изменить фильтры
-                      </p>
+                      <p className="text-sm text-default-400 mt-1">Попробуйте изменить фильтры</p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                paginated.map((tx) => (
+                sorted.map((tx) => (
                   <tr
                     key={tx.id}
                     onClick={() => setModalTx(tx)}
-                    className={`border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer ${
-                      selected.has(tx.id) ? "bg-[#00E5FF]/5" : ""
-                    }`}
+                    className="border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer"
                   >
-                    <td
-                      className="pl-5 pr-3 py-3.5"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected.has(tx.id)}
-                        onChange={() => toggleSelect(tx.id)}
-                        className="rounded border-divider accent-[#00E5FF] cursor-pointer"
-                      />
-                    </td>
-                    <td className="px-3 py-3.5 text-default-400 whitespace-nowrap text-xs">
-                      {tx.date} {tx.time}
+                    <td className="px-5 py-3.5 text-default-400 whitespace-nowrap text-xs">
+                      {formatDateUI(tx.transaction_date)}
                     </td>
                     <td className="px-3 py-3.5">
                       <span className="px-2.5 py-0.5 rounded-lg bg-content2 text-xs font-medium text-default-600">
-                        {tx.category}
+                        {tx.category?.name ?? '—'}
                       </span>
                     </td>
                     <td className="px-3 py-3.5 font-medium text-foreground">
-                      {tx.merchant}
+                      {tx.merchant ?? tx.description ?? '—'}
                     </td>
-                    <td className="px-3 py-3.5 text-default-500 text-xs">
-                      {tx.account}
+                    <td className="px-3 py-3.5 text-default-400 text-xs">
+                      {tx.account?.name ?? '—'}
                     </td>
-                    <td className="px-3 py-3.5 text-right font-semibold tabular-nums">
-                      <span
-                        className={
-                          tx.amount > 0 ? "text-[#00FFA3]" : "text-[#FF3366]"
-                        }
-                      >
-                        {tx.amount > 0 ? "+" : ""}
-                        {tx.amount.toLocaleString("ru-RU")} ₽
+                    <td className={`px-3 py-3.5 font-semibold tabular-nums ${tx.transaction_type === 'income' ? 'text-[#00FFA3]' : 'text-[#FF3366]'
+                      }`}>
+                      {tx.transaction_type === 'income' ? '+' : '-'}
+                      {Number(tx.amount).toLocaleString('ru-RU')} ₽
+                    </td>
+                    <td className="px-3 py-3.5">
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${tx.transaction_type === 'income'
+                        ? 'bg-[#00FFA3]/10 text-[#00FFA3]'
+                        : tx.transaction_type === 'expense'
+                          ? 'bg-[#FF3366]/10 text-[#FF3366]'
+                          : 'bg-[#00E5FF]/10 text-[#00E5FF]'
+                        }`}>
+                        {tx.transaction_type === 'income' ? 'Доход'
+                          : tx.transaction_type === 'expense' ? 'Расход' : 'Перевод'}
                       </span>
-                    </td>
-                    <td className="px-3 py-3.5 text-right text-default-400 text-xs tabular-nums">
-                      {tx.balanceAfter.toLocaleString("ru-RU")} ₽
-                    </td>
-                    <td className="pr-5 py-3.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setModalTx(tx);
-                        }}
-                        className="text-default-400 hover:text-foreground transition-colors"
-                        aria-label="Открыть детали"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
                     </td>
                   </tr>
                 ))
@@ -1203,15 +1078,9 @@ export default function TransactionsPage() {
             {PAGE_SIZES.map((s) => (
               <button
                 key={s}
-                onClick={() => {
-                  setPageSize(s);
-                  setPage(1);
-                }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                  pageSize === s
-                    ? "bg-content3 text-foreground"
-                    : "hover:bg-content2 text-default-400"
-                }`}
+                onClick={() => { setPageSize(s); resetPage(); }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${pageSize === s ? 'bg-content3 text-foreground' : 'hover:bg-content2 text-default-400'
+                  }`}
               >
                 {s}
               </button>
@@ -1219,8 +1088,7 @@ export default function TransactionsPage() {
           </div>
           <div className="flex items-center gap-1 text-sm">
             <span className="text-default-400 mr-2">
-              {(page - 1) * pageSize + 1}–
-              {Math.min(page * pageSize, sorted.length)} из {sorted.length}
+              {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} из {total}
             </span>
             <button
               disabled={page === 1}
@@ -1240,12 +1108,11 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {modalTx && (
-        <TransactionDetailModal tx={modalTx} onClose={() => setModalTx(null)} />
-      )}
+      {modalTx && <TransactionDetailModal tx={modalTx} onClose={() => setModalTx(null)} />}
     </div>
   );
 }
+
 
 
 
@@ -1263,424 +1130,635 @@ export default function Home() {
 ================================================================================
 File path: app/accounts/page.tsx
 ================================================================================
-"use client";
+'use client';
+import { useState, useEffect } from 'react';
+import {
+  Plus, Pencil, CreditCard, Landmark, Wallet,
+  X, Check, RefreshCw, AlertCircle, Trash2,  // ← добавить Trash2
+} from 'lucide-react';
+import { apiClient } from '@/lib/api';
 
-import { useState } from "react";
-import { Plus, Pencil, Trash2, X, Building2 } from "lucide-react";
-import { mockAccounts, type Account } from "@/lib/mock-data";
+// ─── Типы ────────────────────────────────────────────────────────────────────
 
-const BANKS = ["Сбербанк", "Тинькофф", "Альфа-Банк", "ВТБ", "Газпромбанк", "Открытие"];
-const CURRENCIES = ["RUB", "USD", "EUR"] as const;
+// Точное соответствие AccountType из схемы бэкенда
+type AccountType = 'card' | 'bank_account' | 'cash';
 
-const BANK_COLORS: Record<string, string> = {
-  Сбербанк: "from-[#21A038] to-[#1a8030]",
-  Тинькофф: "from-[#FFD600] to-[#e6c200]",
-  "Альфа-Банк": "from-[#EF3124] to-[#c42820]",
-  ВТБ: "from-[#003087] to-[#002070]",
-  Газпромбанк: "from-[#00529B] to-[#004080]",
-  Открытие: "from-[#FF6600] to-[#d45500]",
+// Типы, которые можно переключать между собой
+type BankAccountType = 'card' | 'bank_account';
+
+interface Account {
+  id:                number;
+  name:              string;
+  account_type:      AccountType;
+  currency:          string;
+  balance:           string;   // Decimal с бэкенда приходит как строка
+  bank_name?:        string;
+  last_four_digits?: string;
+  is_active:         boolean;
+  include_in_total:  boolean;
+}
+
+// ─── Константы ───────────────────────────────────────────────────────────────
+
+const TYPE_LABELS: Record<AccountType, string> = {
+  card:         'Карта',
+  bank_account: 'Счёт',
+  cash:         'Наличные',
 };
 
-type AccountFormData = Omit<Account, "id">;
-
-const emptyForm: AccountFormData = {
-  name: "",
-  number: "",
-  bank: "Сбербанк",
-  currency: "RUB",
-  balance: 0,
-  isActive: true,
+const TYPE_ICONS: Record<AccountType, React.ReactNode> = {
+  card:         <CreditCard className="w-5 h-5" />,
+  bank_account: <Landmark   className="w-5 h-5" />,
+  cash:         <Wallet     className="w-5 h-5" />,
 };
+
+const CURRENCIES = ['RUB', 'USD', 'EUR', 'GBP', 'CNY'] as const;
+
+// ─── Хелперы ─────────────────────────────────────────────────────────────────
+
+/** Безопасно форматирует баланс — Decimal с бэкенда приходит как строка */
+function formatBalance(balance: string, currency: string): string {
+  const num = parseFloat(balance) || 0;
+  return num.toLocaleString('ru-RU', { style: 'currency', currency });
+}
+
+// ─── Компонент ───────────────────────────────────────────────────────────────
 
 export default function AccountsPage() {
-  const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<AccountFormData>(emptyForm);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [accounts,     setAccounts]     = useState<Account[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [editId,       setEditId]       = useState<number | null>(null);
+  const [showCreate,   setShowCreate]   = useState(false);
+  const [error,        setError]        = useState('');
 
-  const openAdd = () => {
-    setEditingId(null);
-    setForm(emptyForm);
-    setModalOpen(true);
+  // Форма редактирования
+  const [editName,     setEditName]     = useState('');
+  const [editBank,     setEditBank]     = useState('');
+  const [editType,     setEditType]     = useState<BankAccountType>('card');
+  const [editCurrency, setEditCurrency] = useState('RUB');
+  const [saving,       setSaving]       = useState(false);
+  const [editBalance, setEditBalance] = useState('');
+
+  // Форма создания наличных
+  const [cashName,     setCashName]     = useState('');
+  const [cashCurrency, setCashCurrency] = useState('RUB');
+  const [creating,     setCreating]     = useState(false);
+
+  // Удаление счетов
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => { fetchAccounts(); }, []);
+
+  const fetchAccounts = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/accounts');
+      setAccounts(res.data);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openEdit = (acc: Account) => {
-    setEditingId(acc.id);
-    setForm({
-      name: acc.name,
-      number: acc.number,
-      bank: acc.bank,
-      currency: acc.currency,
-      balance: acc.balance,
-      isActive: acc.isActive,
-    });
-    setModalOpen(true);
+    setEditId(acc.id);
+    setEditName(acc.name);
+    setEditBank(acc.bank_name ?? '');
+    // Для cash editType не используется, ставим заглушку
+    setEditType(acc.account_type !== 'cash' ? acc.account_type : 'card');
+    setEditCurrency(acc.currency);
+    setEditBalance(acc.balance);
+    setError('');
   };
 
-  const handleSave = () => {
-    if (!form.name.trim() || !form.number.trim()) return;
-    if (editingId !== null) {
-      setAccounts((prev) =>
-        prev.map((a) => (a.id === editingId ? { ...form, id: editingId } : a))
-      );
-    } else {
-      const newId = Math.max(...accounts.map((a) => a.id), 0) + 1;
-      setAccounts((prev) => [...prev, { ...form, id: newId }]);
+  const handleSave = async (acc: Account) => {
+    setSaving(true);
+    setError('');
+    try {
+      const payload: Record<string, unknown> = {
+        name:     editName     || undefined,
+        currency: editCurrency || undefined,
+      };
+      // bank_name и account_type — только для card/bank_account
+      if (acc.account_type !== 'cash') {
+        payload.bank_name    = editBank || undefined;
+        payload.account_type = editType; // 'card' | 'bank_account'
+      }
+      if (acc.account_type === 'cash') {
+  	const bal = parseFloat(editBalance);
+  	if (!isNaN(bal)) payload.balance = String(bal);
+      }
+      const res = await apiClient.patch(`/accounts/${acc.id}`, payload);
+      setAccounts(prev => prev.map(a => a.id === acc.id ? res.data : a));
+      setEditId(null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      setError(msg || 'Ошибка сохранения');
+    } finally {
+      setSaving(false);
     }
-    setModalOpen(false);
   };
 
-  const handleDelete = (id: number) => {
-    setAccounts((prev) => prev.filter((a) => a.id !== id));
-    setDeleteConfirm(null);
+  const handleCreate = async () => {
+    setCreating(true);
+    setError('');
+    try {
+      const res = await apiClient.post('/accounts', {
+        name:         cashName,
+        account_type: 'cash',
+        currency:     cashCurrency,
+      });
+      setAccounts(prev => [...prev, res.data]);
+      setShowCreate(false);
+      setCashName('');
+      setCashCurrency('RUB');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      setError(msg || 'Ошибка создания');
+    } finally {
+      setCreating(false);
+    }
   };
 
-  const toggleActive = (id: number) => {
-    setAccounts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, isActive: !a.isActive } : a))
-    );
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await apiClient.delete(`/accounts/${deleteId}`);
+      // Soft delete для card/bank_account — бэкенд деактивирует, не удаляет
+      // Убираем из списка в обоих случаях
+      setAccounts(prev => prev.filter(a => a.id !== deleteId));
+      setDeleteId(null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })
+	?.response?.data?.detail;
+      setError(msg || 'Ошибка удаления');
+    } finally {
+      setDeleting(false);
+    }
   };
+return (
+  <div className="space-y-6 max-w-3xl">
 
-  const totalBalance = accounts
-    .filter((a) => a.isActive)
-    .reduce((s, a) => s + a.balance, 0);
-
-  const maskNumber = (n: string) =>
-    n.length > 4 ? `${n.slice(0, 5)}...${n.slice(-4)}` : n;
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <nav className="text-xs text-default-400 mb-1">
-            <span>Dashboard</span>
-            <span className="mx-1.5">/</span>
-            <span className="text-foreground">Счета</span>
-          </nav>
-          <h1 className="text-3xl font-bold text-foreground">Счета</h1>
-          <p className="text-sm text-default-500 mt-1">
-            Общий баланс активных счетов:{" "}
-            <span className="font-semibold text-[#00E5FF]">
-              {totalBalance.toLocaleString("ru-RU")} ₽
-            </span>
-          </p>
-        </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-opacity shadow-glow"
-        >
-          <Plus className="w-4 h-4" />
-          Добавить счет
-        </button>
+    {/* Header */}
+    <div className="flex items-center justify-between">
+      <div>
+        <nav className="text-xs text-default-400 mb-1">
+          <span>Dashboard</span><span className="mx-1.5">/</span>
+          <span className="text-foreground">Счета</span>
+        </nav>
+        <h1 className="text-3xl font-bold text-foreground">Счета</h1>
       </div>
+      <button
+        onClick={() => { setShowCreate(true); setError(''); }}
+        className="flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-all"
+      >
+        <Plus className="w-4 h-4" /> Добавить наличные
+      </button>
+    </div>
 
-      {/* Cards grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {accounts.map((acc) => (
-          <div
-            key={acc.id}
-            className={`glass-card rounded-2xl p-5 hover-lift transition-all ${
-              !acc.isActive ? "opacity-60" : ""
-            }`}
-          >
-            {/* Card top stripe */}
-            <div
-              className={`h-1.5 rounded-full bg-gradient-to-r ${
-                BANK_COLORS[acc.bank] || "from-[#00E5FF] to-[#0066FF]"
-              } mb-5`}
-            />
+    {/* Подсказка */}
+    <div className="flex items-start gap-3 p-4 rounded-xl bg-[#00E5FF]/5 border border-[#00E5FF]/20 text-sm text-default-400">
+      <AlertCircle className="w-4 h-4 text-[#00E5FF] flex-shrink-0 mt-0.5" />
+      Банковские карты и счета добавляются автоматически при загрузке выписки
+      через Telegram бота. Вручную можно добавить только счёт наличных.
+    </div>
 
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-foreground text-base truncate">
-                  {acc.name}
-                </p>
-                <p className="text-xs text-default-400 mt-0.5 font-mono">
-                  {maskNumber(acc.number)}
-                </p>
+    {/* Список */}
+    {loading ? (
+      <div className="flex justify-center py-12">
+        <RefreshCw className="w-6 h-6 animate-spin text-default-400" />
+      </div>
+    ) : accounts.length === 0 ? (
+      <div className="glass-card rounded-2xl p-12 text-center text-default-400">
+        <Wallet className="w-12 h-12 mx-auto mb-3 opacity-30" />
+        <p className="font-medium">Счета не найдены</p>
+        <p className="text-sm mt-1">
+          Загрузите выписку через Telegram бота — счета появятся автоматически
+        </p>
+      </div>
+    ) : (
+      <div className="space-y-3">
+        {accounts.map(acc => (
+          <div key={acc.id} className="glass-card rounded-2xl p-5">
+            {editId === acc.id ? (
+              /* ── Режим редактирования ── */
+              <div className="space-y-4">
+                {error && (
+                  <div className="flex items-center gap-2 text-sm text-[#FF3366]">
+                    <AlertCircle className="w-4 h-4" /> {error}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-default-400">Название</label>
+                    <input
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      className="input-field h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-default-400">Валюта</label>
+                    <select
+                      value={editCurrency}
+                      onChange={e => setEditCurrency(e.target.value)}
+                      className="input-field h-9 text-sm"
+                    >
+                      {CURRENCIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+		  {acc.account_type === 'cash' && (
+		    <div className="space-y-1.5">
+		      <label className="text-xs text-default-400">Баланс</label>
+		      <input
+			type="number"
+			value={editBalance}
+			onChange={e => setEditBalance(e.target.value)}
+			placeholder="0"
+			className="input-field h-9 text-sm"
+		      />
+		    </div>
+		  )}
+                  {acc.account_type !== 'cash' && (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-default-400">Банк</label>
+                        <input
+                          value={editBank}
+                          onChange={e => setEditBank(e.target.value)}
+                          placeholder="Сбербанк"
+                          className="input-field h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-default-400">Тип</label>
+                        <select
+                          value={editType}
+                          onChange={e => setEditType(e.target.value as BankAccountType)}
+                          className="input-field h-9 text-sm"
+                        >
+                          <option value="card">Карта</option>
+                          <option value="bank_account">Счёт</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleSave(acc)}
+                    disabled={saving}
+                    className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold disabled:opacity-60"
+                  >
+                    {saving
+                      ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      : <Check className="w-3.5 h-3.5" />
+                    }
+                    Сохранить
+                  </button>
+                  <button
+                    onClick={() => setEditId(null)}
+                    className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-content2 border border-divider text-sm text-default-400 hover:text-foreground"
+                  >
+                    <X className="w-3.5 h-3.5" /> Отмена
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1 ml-2">
-                <button
-                  onClick={() => openEdit(acc)}
-                  className="p-1.5 rounded-lg text-default-400 hover:text-foreground hover:bg-content2 transition-colors"
-                  aria-label="Изменить"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setDeleteConfirm(acc.id)}
-                  className="p-1.5 rounded-lg text-default-400 hover:text-[#FF3366] hover:bg-[#FF3366]/10 transition-colors"
-                  aria-label="Удалить"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+            ) : (
+              /* ── Режим просмотра ── */
+              <div className="flex items-center justify-between">
+                {/* Левая часть — иконка + текст */}
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-xl bg-[#00E5FF]/10 flex items-center justify-center text-[#00E5FF]">
+                    {TYPE_ICONS[acc.account_type]}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-foreground">{acc.name}</p>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-content2 text-default-400">
+                        {TYPE_LABELS[acc.account_type]}
+                      </span>
+                      {acc.bank_name && (
+                        <span className="text-xs text-default-400">{acc.bank_name}</span>
+                      )}
+                    </div>
+                    {acc.last_four_digits ? (
+                      <p className="text-xs text-default-400 mt-0.5">
+                        •••• {acc.last_four_digits} · {acc.currency}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-default-400 mt-0.5">{acc.currency}</p>
+                    )}
+                  </div>
+                </div> {/* ← конец левой части */}
 
-            <div className="flex items-center gap-2 mb-4">
-              <Building2 className="w-3.5 h-3.5 text-default-400" />
-              <span className="text-xs text-default-500">{acc.bank}</span>
-              <span className="text-xs text-default-400 ml-1 px-1.5 py-0.5 rounded bg-content2">
-                {acc.currency}
-              </span>
-            </div>
-
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-xs text-default-400 mb-0.5">Текущий баланс</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {acc.balance.toLocaleString("ru-RU")} ₽
-                </p>
+                {/* Правая часть — баланс + кнопки */}
+                <div className="flex items-center gap-4">
+                  <p className="text-lg font-bold text-foreground">
+                    {formatBalance(acc.balance, acc.currency)}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openEdit(acc)}
+                      className="p-2 rounded-lg text-default-400 hover:text-foreground hover:bg-content2 transition-all"
+                      aria-label="Редактировать"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => { setDeleteId(acc.id); setError(''); }}
+                      className="p-2 rounded-lg text-default-400 hover:text-[#FF3366] hover:bg-[#FF3366]/10 transition-all"
+                      aria-label="Удалить"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div> {/* ← конец правой части */}
               </div>
-              {/* Active toggle */}
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-xs font-medium ${
-                    acc.isActive ? "text-[#00FFA3]" : "text-default-400"
-                  }`}
-                >
-                  {acc.isActive ? "Активный" : "Архивный"}
-                </span>
-                <Toggle checked={acc.isActive} onChange={() => toggleActive(acc.id)} />
-              </div>
-            </div>
+            )}
           </div>
         ))}
       </div>
+    )}
 
-      {/* Add/Edit Modal */}
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => setModalOpen(false)}
-        >
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div
-            className="relative glass-card rounded-2xl w-full max-w-md p-6 animate-scale-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setModalOpen(false)}
-              className="absolute top-4 right-4 text-default-400 hover:text-foreground p-1 rounded-lg hover:bg-content2"
-            >
+    {/* ── Модал создания наличных ── */}
+    {showCreate && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div className="glass-card rounded-2xl p-6 w-full max-w-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-foreground">Добавить наличные</h2>
+            <button onClick={() => setShowCreate(false)} className="text-default-400 hover:text-foreground">
               <X className="w-5 h-5" />
             </button>
-            <h2 className="text-lg font-bold mb-5">
-              {editingId !== null ? "Редактировать счет" : "Добавить счет"}
-            </h2>
-            <div className="space-y-4">
-              <Field label="Название счета">
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Сбер Зарплатная"
-                  className="input-field"
-                />
-              </Field>
-              <Field label="Номер счета">
-                <input
-                  value={form.number}
-                  onChange={(e) => setForm({ ...form, number: e.target.value })}
-                  placeholder="40817810900001234"
-                  className="input-field font-mono"
-                />
-              </Field>
-              <Field label="Банк">
-                <select
-                  value={form.bank}
-                  onChange={(e) => setForm({ ...form, bank: e.target.value })}
-                  className="input-field"
-                >
-                  {BANKS.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Валюта">
-                <select
-                  value={form.currency}
-                  onChange={(e) =>
-                    setForm({ ...form, currency: e.target.value as Account["currency"] })
-                  }
-                  className="input-field"
-                >
-                  {CURRENCIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <div className="flex items-center justify-between py-3 border-t border-divider">
-                <span className="text-sm font-medium">Активный счет</span>
-                <Toggle checked={form.isActive} onChange={() => setForm({ ...form, isActive: !form.isActive })} />
-              </div>
+          </div>
+          {error && (
+            <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4" /> {error}
+            </p>
+          )}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-default-600">Название</label>
+              <input
+                value={cashName}
+                onChange={e => setCashName(e.target.value)}
+                placeholder="Кошелёк"
+                className="input-field"
+              />
             </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-default-600">Валюта</label>
+              <select
+                value={cashCurrency}
+                onChange={e => setCashCurrency(e.target.value)}
+                className="input-field"
               >
-                Отмена
-              </button>
-              <button
-                onClick={handleSave}
-                className="flex-1 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-opacity"
-              >
-                Сохранить
-              </button>
+                <option value="RUB">RUB — Российский рубль</option>
+                <option value="USD">USD — Доллар США</option>
+                <option value="EUR">EUR — Евро</option>
+                <option value="GBP">GBP — Фунт стерлингов</option>
+              </select>
             </div>
           </div>
+          <button
+            onClick={handleCreate}
+            disabled={creating || !cashName.trim()}
+            className="w-full h-11 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Создать счёт'}
+          </button>
         </div>
-      )}
+      </div>
+    )}
 
-      {/* Delete confirm modal */}
-      {deleteConfirm !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setDeleteConfirm(null)}
-          />
-          <div className="relative glass-card rounded-2xl w-full max-w-sm p-6 animate-scale-in">
-            <h2 className="text-lg font-bold mb-2">Удалить счет?</h2>
-            <p className="text-sm text-default-500 mb-5">
-              Это действие нельзя отменить. Транзакции по счету останутся.
+    {/* ── Модал подтверждения удаления ── */}
+    {deleteId !== null && (() => {
+      const acc = accounts.find(a => a.id === deleteId);
+      const isBankAcc = acc?.account_type !== 'cash';
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="glass-card rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-foreground">Удалить счёт?</h2>
+              <button onClick={() => setDeleteId(null)} className="text-default-400 hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {error && (
+              <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4" /> {error}
+              </p>
+            )}
+            <div className="p-4 rounded-xl bg-content2 space-y-1">
+              <p className="font-medium text-foreground">{acc?.name}</p>
+              {acc?.last_four_digits && (
+                <p className="text-xs text-default-400">•••• {acc.last_four_digits}</p>
+              )}
+            </div>
+            <p className="text-sm text-default-400">
+              {isBankAcc
+                ? 'Банковский счёт будет деактивирован. История транзакций сохранится.'
+                : 'Счёт наличных и все связанные данные будут удалены безвозвратно.'
+              }
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => setDeleteConfirm(null)}
+                onClick={() => setDeleteId(null)}
                 className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
               >
                 Отмена
               </button>
               <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 h-10 rounded-xl bg-[#FF3366] text-white text-sm font-semibold hover:bg-[#CC2952] transition-colors"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 h-10 rounded-xl bg-[#FF3366] hover:bg-[#CC2952] text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                Удалить
+                {deleting
+                  ? <RefreshCw className="w-4 h-4 animate-spin" />
+                  : isBankAcc ? 'Деактивировать' : 'Удалить'
+                }
               </button>
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
+      );
+    })()}
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium text-default-600">{label}</label>
-      {children}
-    </div>
-  );
-}
+  </div> 
+);
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <button
-      onClick={onChange}
-      role="switch"
-      aria-checked={checked}
-      className={`relative inline-flex w-10 h-6 rounded-full transition-colors flex-shrink-0 focus:outline-none ${
-        checked ? "bg-[#00FFA3]" : "bg-content3"
-      }`}
-    >
-      <span
-        className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-          checked ? "translate-x-5" : "translate-x-1"
-        }`}
-      />
-    </button>
-  );
-}
 
 
 
 ================================================================================
 File path: app/settings/page.tsx
 ================================================================================
-"use client";
-
-import { useState } from "react";
+'use client';
+import { useState, useEffect } from 'react';
+import { apiClient } from '@/lib/api';
+import { useAuth } from '@/lib/hooks/useAuth';
+import Cookies from 'js-cookie';
 import {
-  User,
-  Lock,
-  Link2,
-  Bell,
-  Camera,
-  Copy,
-  Check,
-  Download,
-  FileText,
-  Send,
-  Trash2,
-  ExternalLink,
-} from "lucide-react";
+  User, Lock, Bell, Check, RefreshCw, AlertCircle,
+  Eye, EyeOff, ExternalLink, Send, CheckCircle,
+  Unlink, Copy, CheckCheck,
+} from 'lucide-react';
 
-type Tab = "profile" | "security" | "integrations" | "notifications";
+type Tab = 'profile' | 'security' | 'notifications' | 'integrations';
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: "profile", label: "Профиль", icon: <User className="w-4 h-4" /> },
-  { id: "security", label: "Безопасность", icon: <Lock className="w-4 h-4" /> },
-  { id: "integrations", label: "Интеграции", icon: <Link2 className="w-4 h-4" /> },
-  { id: "notifications", label: "Уведомления", icon: <Bell className="w-4 h-4" /> },
+  { id: 'profile',      label: 'Профиль',      icon: <User className="w-4 h-4" /> },
+  { id: 'security',     label: 'Безопасность', icon: <Lock className="w-4 h-4" /> },
+  { id: 'notifications',label: 'Уведомления',  icon: <Bell className="w-4 h-4" /> },
+  { id: 'integrations', label: 'Telegram',   icon: <Send className="w-4 h-4" /> },
 ];
-
-const SESSIONS = [
-  { id: 1, device: "Chrome / macOS", location: "Москва, RU", active: true, lastSeen: "Сейчас" },
-  { id: 2, device: "Safari / iPhone", location: "Москва, RU", active: false, lastSeen: "2 часа назад" },
-  { id: 3, device: "Firefox / Windows", location: "Санкт-Петербург, RU", active: false, lastSeen: "3 дня назад" },
-];
-
-const WEBHOOK_URL = "https://autoflow.dev/api/webhook/abc123xyz789";
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>("profile");
+  const { user, updateUser } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  const [tab, setTab] = useState<Tab>('profile');
 
   // Profile
-  const [name, setName] = useState("AutoFlow User");
-  const [email, setEmail] = useState("user@autoflow.dev");
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState('');
 
   // Security
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [sessions, setSessions] = useState(SESSIONS);
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [pwdSaving, setPwdSaving] = useState(false);
+  const [pwdSaved, setPwdSaved] = useState(false);
+  const [pwdError, setPwdError] = useState('');
 
-  // Integrations
-  const [telegramConnected] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  // Notifications
-  const [notifTelegram, setNotifTelegram] = useState(true);
+  // Notifications (локальные настройки в cookies)
   const [notifEmail, setNotifEmail] = useState(false);
   const [notifPush, setNotifPush] = useState(true);
 
-  const handleSaveProfile = () => {
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 2000);
+
+  // Telegram
+  const [tgStatus, setTgStatus]     = useState<{ is_linked: boolean; telegram_username?: string } | null>(null);
+  const [tgLoading, setTgLoading]   = useState(false);
+  const [tgLinkData, setTgLinkData] = useState<{ deep_link: string; expires_at: string } | null>(null);
+  const [copied, setCopied]         = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Заполняем форму данными пользователя
+  useEffect(() => {
+    if (user) {
+      setName(user.username);
+      setEmail(user.email);
+      setFullName(user.full_name ?? '');
+    }
+  }, [user]);
+
+
+  useEffect(() => {
+    if (!mounted) return;
+    apiClient.get('/telegram/status')
+      .then((r) => setTgStatus(r.data))
+      .catch(() => setTgStatus({ is_linked: false }));
+  }, [mounted]);
+
+
+  const handleSaveProfile = async () => {
+    setProfileSaving(true);
+    setProfileError('');
+    try {
+      const res = await apiClient.patch('/users/me', {
+	username:  name     || undefined,
+	email:     email    || undefined,
+	full_name: fullName || undefined,
+      });
+
+      // updateUser сам обновит стейт + куку
+      updateUser(res.data);
+
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2000);
+    } catch (err: any) {
+      setProfileError(err.response?.data?.detail || 'Ошибка сохранения');
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
-  const handleCopyWebhook = () => {
-    navigator.clipboard.writeText(WEBHOOK_URL).catch(() => {});
+  // Бэкенд ожидает old_password, не current_password
+  const handleChangePassword = async () => {
+    if (newPwd !== confirmPwd) { setPwdError('Пароли не совпадают'); return; }
+    if (newPwd.length < 8) { setPwdError('Минимум 8 символов'); return; }
+    setPwdSaving(true);
+    setPwdError('');
+    try {
+      await apiClient.post('/auth/change-password', {
+	old_password: currentPwd,   // ← было current_password
+	new_password: newPwd,
+      });
+      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
+      setPwdSaved(true);
+      setTimeout(() => setPwdSaved(false), 2000);
+    } catch (err: any) {
+      setPwdError(err.response?.data?.detail || 'Ошибка смены пароля');
+    } finally {
+      setPwdSaving(false);
+    }
+  };
+  // Инициалы — только после монтирования
+  const initials = mounted
+    ? (user?.full_name ?? user?.username ?? 'AF')
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : 'AF'
+
+  // Генерация deep link:
+  const handleGenerateLink = async () => {
+    setTgLoading(true);
+    try {
+      const res = await apiClient.post('/telegram/generate-link');
+      setTgLinkData(res.data);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setTgLoading(false);
+    }
+  };
+
+  // Копировать ссылку:
+  const handleCopy = async () => {
+    if (!tgLinkData) return;
+    await navigator.clipboard.writeText(tgLinkData.deep_link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const terminateSession = (id: number) => {
-    setSessions((prev) => prev.filter((s) => s.id !== id));
+  // Отвязать Telegram:
+  const handleUnlink = async () => {
+    setTgLoading(true);
+    try {
+      await apiClient.delete('/telegram/unlink');
+      setTgStatus({ is_linked: false });
+      setTgLinkData(null);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setTgLoading(false);
+    }
   };
 
   return (
@@ -1688,9 +1766,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div>
         <nav className="text-xs text-default-400 mb-1">
-          <span>Dashboard</span>
-          <span className="mx-1.5">/</span>
-          <span className="text-foreground">Настройки</span>
+          <span>Dashboard</span><span className="mx-1.5">/</span><span className="text-foreground">Настройки</span>
         </nav>
         <h1 className="text-3xl font-bold text-foreground">Настройки</h1>
       </div>
@@ -1701,273 +1777,224 @@ export default function SettingsPage() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              tab === t.id
-                ? "bg-content3 text-foreground"
-                : "text-default-400 hover:text-foreground hover:bg-content2"
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.id ? 'bg-content3 text-foreground' : 'text-default-400 hover:text-foreground hover:bg-content2'
+              }`}
           >
-            {t.icon}
-            {t.label}
+            {t.icon} {t.label}
           </button>
         ))}
       </div>
 
       {/* Profile Tab */}
-      {tab === "profile" && (
+      {tab === 'profile' && (
         <div className="glass-card rounded-2xl p-6 space-y-6">
           {/* Avatar */}
-          <div className="flex items-center gap-5">
-            <div className="relative">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
-                <span className="text-2xl font-bold text-black">AF</span>
-              </div>
-              <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-content3 border border-divider flex items-center justify-center hover:bg-content2 transition-colors">
-                <Camera className="w-3.5 h-3.5 text-default-400" />
-              </button>
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">{name}</p>
-              <p className="text-sm text-default-400">{email}</p>
-            </div>
-          </div>
+	  <div className="flex items-center gap-5">
+	    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
+	      {/* suppressHydrationWarning подавляет предупреждение для этого элемента */}
+	      <span
+		className="text-2xl font-bold text-black"
+		suppressHydrationWarning
+	      >
+		{initials}
+	      </span>
+	    </div>
+	    <div>
+	      <p
+		className="font-semibold text-foreground"
+		suppressHydrationWarning
+	      >
+		{mounted ? (user?.full_name ?? user?.username) : ''}
+	      </p>
+	      <p
+		className="text-sm text-default-400"
+		suppressHydrationWarning
+	      >
+		{mounted ? user?.email : ''}
+	      </p>
+	    </div>
+	  </div>
 
           <div className="space-y-4 pt-2 border-t border-divider">
             <Field label="Имя пользователя">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input-field"
-              />
+              <input value={name} onChange={(e) => setName(e.target.value)} className="input-field" />
+            </Field>
+            <Field label="Полное имя">
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Иван Иванов" className="input-field" />
             </Field>
             <Field label="Email">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-field"
-              />
-            </Field>
-            <Field label="Telegram ID">
-              <input
-                value="@autoflow_user"
-                readOnly
-                className="input-field opacity-60 cursor-not-allowed"
-              />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-field" />
             </Field>
           </div>
 
           <button
             onClick={handleSaveProfile}
-            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-all"
+            disabled={profileSaving}
+            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
           >
-            {profileSaved ? (
-              <>
-                <Check className="w-4 h-4" />
-                Сохранено
-              </>
-            ) : (
-              "Сохранить изменения"
-            )}
+            {profileSaving ? <RefreshCw className="w-4 h-4 animate-spin" />
+              : profileSaved ? <><Check className="w-4 h-4" /> Сохранено!</>
+                : 'Сохранить'}
           </button>
         </div>
       )}
 
       {/* Security Tab */}
-      {tab === "security" && (
-        <div className="space-y-5">
-          <div className="glass-card rounded-2xl p-6 space-y-4">
-            <h2 className="text-base font-semibold">Изменить пароль</h2>
+      {tab === 'security' && (
+        <div className="glass-card rounded-2xl p-6 space-y-5">
+          <h2 className="text-base font-semibold">Смена пароля</h2>
+
+          {pwdError && (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/30 text-sm text-[#FF3366]">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {pwdError}
+            </div>
+          )}
+
+          <div className="space-y-4">
             <Field label="Текущий пароль">
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="••••••••"
-                className="input-field"
-              />
+              <div className="relative">
+                <input type={showPwd ? 'text' : 'password'} value={currentPwd}
+                  onChange={(e) => setCurrentPwd(e.target.value)} className="input-field pr-10" />
+                <button type="button" onClick={() => setShowPwd(!showPwd)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-default-400">
+                  {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </Field>
             <Field label="Новый пароль">
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Минимум 8 символов"
-                className="input-field"
-              />
+              <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="input-field" />
             </Field>
-            <Field label="Подтверждение пароля">
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                className="input-field"
-              />
+            <Field label="Подтвердите пароль">
+              <input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="input-field" />
             </Field>
-            {newPassword && confirmPassword && newPassword !== confirmPassword && (
-              <p className="text-xs text-[#FF3366]">Пароли не совпадают</p>
-            )}
-            <button
-              disabled={
-                !currentPassword ||
-                !newPassword ||
-                newPassword.length < 8 ||
-                newPassword !== confirmPassword
-              }
-              className="px-5 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              Изменить пароль
-            </button>
           </div>
 
-          <div className="glass-card rounded-2xl p-6 space-y-4">
-            <h2 className="text-base font-semibold">Активные сессии</h2>
-            <div className="space-y-3">
-              {sessions.map((s) => (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between py-3 border-b border-divider/40 last:border-0"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-foreground">{s.device}</p>
-                      {s.active && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#00FFA3]/10 text-[#00FFA3] text-xs font-medium">
-                          Текущая
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-default-400 mt-0.5">
-                      {s.location} — {s.lastSeen}
-                    </p>
-                  </div>
-                  {!s.active && (
-                    <button
-                      onClick={() => terminateSession(s.id)}
-                      className="p-1.5 rounded-lg text-default-400 hover:text-[#FF3366] hover:bg-[#FF3366]/10 transition-colors"
-                      aria-label="Завершить сессию"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Integrations Tab */}
-      {tab === "integrations" && (
-        <div className="space-y-5">
-          {/* Telegram */}
-          <div className="glass-card rounded-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#229ED9]/10 text-[#229ED9] flex items-center justify-center">
-                  <Send className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">Telegram бот</p>
-                  <p className="text-xs text-default-400">Загрузка выписок и уведомления</p>
-                </div>
-              </div>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  telegramConnected
-                    ? "bg-[#00FFA3]/10 text-[#00FFA3]"
-                    : "bg-content3 text-default-400"
-                }`}
-              >
-                {telegramConnected ? "Подключен" : "Не подключен"}
-              </span>
-            </div>
-            {!telegramConnected && (
-              <button className="flex items-center gap-2 px-4 h-10 rounded-xl bg-[#229ED9]/10 border border-[#229ED9]/30 text-[#229ED9] text-sm font-medium hover:bg-[#229ED9]/20 transition-colors">
-                <ExternalLink className="w-4 h-4" />
-                Подключить Telegram
-              </button>
-            )}
-            {telegramConnected && (
-              <p className="text-xs text-default-400">
-                Последняя загрузка: 09.03.2026 в 14:30
-              </p>
-            )}
-          </div>
-
-          {/* Webhook */}
-          <div className="glass-card rounded-2xl p-6 space-y-4">
-            <div>
-              <p className="font-semibold text-foreground mb-1">Webhook URL</p>
-              <p className="text-xs text-default-400">
-                Используйте этот URL для автоматической загрузки выписок
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={WEBHOOK_URL}
-                readOnly
-                className="input-field font-mono text-xs flex-1 opacity-70 cursor-not-allowed"
-              />
-              <button
-                onClick={handleCopyWebhook}
-                className="px-4 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium flex items-center gap-2 flex-shrink-0"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-4 h-4 text-[#00FFA3]" />
-                    <span className="text-[#00FFA3]">Скопировано</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    Копировать
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Export */}
-          <div className="glass-card rounded-2xl p-6 space-y-4">
-            <p className="font-semibold text-foreground">Экспорт данных</p>
-            <div className="flex flex-wrap gap-3">
-              <button className="flex items-center gap-2 px-4 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium">
-                <Download className="w-4 h-4 text-[#00FFA3]" />
-                Экспорт транзакций в CSV
-              </button>
-              <button className="flex items-center gap-2 px-4 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium">
-                <FileText className="w-4 h-4 text-[#FF3366]" />
-                Экспорт отчета в PDF
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={handleChangePassword}
+            disabled={pwdSaving || !currentPwd || !newPwd || !confirmPwd}
+            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
+          >
+            {pwdSaving ? <RefreshCw className="w-4 h-4 animate-spin" />
+              : pwdSaved ? <><Check className="w-4 h-4" /> Изменён!</>
+                : 'Изменить пароль'}
+          </button>
         </div>
       )}
 
       {/* Notifications Tab */}
-      {tab === "notifications" && (
-        <div className="glass-card rounded-2xl p-6 space-y-1">
-          <h2 className="text-base font-semibold mb-4">Уведомления</h2>
-          <NotifRow
-            label="Уведомления в Telegram о новых транзакциях"
-            description="Получайте мгновенные уведомления о каждой операции"
-            value={notifTelegram}
-            onChange={setNotifTelegram}
-          />
-          <NotifRow
-            label="Еженедельный отчет по email"
-            description="Сводка доходов и расходов каждый понедельник"
-            value={notifEmail}
-            onChange={setNotifEmail}
-          />
-          <NotifRow
-            label="Push-уведомления в браузере"
-            description="Уведомления прямо в браузере без Telegram"
-            value={notifPush}
-            onChange={setNotifPush}
-          />
+      {tab === 'notifications' && (
+        <div className="glass-card rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-semibold mb-2">Уведомления</h2>
+          {[
+            { label: 'Email-уведомления', sub: 'Ежедневные сводки на почту', value: notifEmail, set: setNotifEmail },
+            { label: 'Push-уведомления', sub: 'Уведомления в браузере', value: notifPush, set: setNotifPush },
+          ].map((item) => (
+            <div key={item.label} className="flex items-center justify-between py-4 border-b border-divider last:border-0">
+              <div>
+                <p className="text-sm font-medium">{item.label}</p>
+                <p className="text-xs text-default-400 mt-0.5">{item.sub}</p>
+              </div>
+              <Toggle checked={item.value} onChange={() => item.set(!item.value)} />
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Integrations Tab */}
+      {tab === 'integrations' && (
+        <div className="glass-card rounded-2xl p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#00E5FF]/10 flex items-center justify-center">
+              <Send className="w-5 h-5 text-[#00E5FF]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Telegram</h2>
+              <p className="text-sm text-default-400">
+                Привязка бота для загрузки банковских выписок
+              </p>
+            </div>
+          </div>
+
+          {tgStatus === null ? (
+            // Загрузка статуса
+            <div className="flex items-center gap-2 text-sm text-default-400">
+              <RefreshCw className="w-4 h-4 animate-spin" /> Загрузка...
+            </div>
+          ) : tgStatus.is_linked ? (
+            // Привязан
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-[#00FFA3]/10 border border-[#00FFA3]/30">
+                <CheckCircle className="w-5 h-5 text-[#00FFA3] flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-[#00FFA3]">Telegram привязан</p>
+                  {tgStatus.telegram_username && (
+                    <p className="text-xs text-default-400 mt-0.5">
+                      @{tgStatus.telegram_username}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={handleUnlink}
+                disabled={tgLoading}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-[#FF3366] hover:border-[#FF3366]/50 transition-all disabled:opacity-50"
+              >
+                <Unlink className="w-4 h-4" />
+                Отвязать Telegram
+              </button>
+            </div>
+          ) : !tgLinkData ? (
+            // Не привязан — показываем кнопку генерации
+            <div className="space-y-3">
+              <p className="text-sm text-default-400 leading-relaxed">
+                Привяжите Telegram бота чтобы загружать банковские выписки прямо
+                из мессенджера. Транзакции будут импортироваться автоматически.
+              </p>
+              <button
+                onClick={handleGenerateLink}
+                disabled={tgLoading}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/40 text-sm text-[#00E5FF] hover:bg-[#00E5FF]/20 transition-all disabled:opacity-50"
+              >
+                {tgLoading
+                  ? <span className="w-4 h-4 border-2 border-[#00E5FF]/30 border-t-[#00E5FF] rounded-full animate-spin" />
+                  : <Send className="w-4 h-4" />
+                }
+                Привязать Telegram
+              </button>
+            </div>
+          ) : (
+            // Deep link сгенерирован
+            <div className="space-y-3">
+              <p className="text-sm text-default-400">
+                Ссылка действительна{' '}
+                <span className="text-foreground font-medium">10 минут</span>.
+                Нажмите кнопку чтобы открыть бота.
+              </p>
+              <a
+                href={tgLinkData.deep_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-gradient-to-r from-[#00E5FF] to-[#0066FF] text-black text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Открыть Telegram бота
+              </a>
+              <button
+                onClick={handleCopy}
+                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-foreground hover:bg-content3 transition-all"
+              >
+                {copied
+                  ? <><Check className="w-4 h-4 text-[#00FFA3]" /><span className="text-[#00FFA3]">Скопировано</span></>
+                  : <><Copy className="w-4 h-4" />Скопировать ссылку</>
+                }
+              </button>
+              <button
+                onClick={() => setTgLinkData(null)}
+                className="text-xs text-default-400 hover:text-default-600 transition-colors w-full text-center pt-1"
+              >
+                Сгенерировать новую ссылку
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1983,38 +2010,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function NotifRow({
-  label,
-  description,
-  value,
-  onChange,
-}: {
-  label: string;
-  description: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
-    <div className="flex items-center justify-between py-4 border-b border-divider/40 last:border-0">
-      <div className="pr-4">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-xs text-default-400 mt-0.5">{description}</p>
-      </div>
-      <button
-        onClick={() => onChange(!value)}
-        role="switch"
-        aria-checked={value}
-        className={`relative inline-flex w-10 h-6 rounded-full transition-colors flex-shrink-0 focus:outline-none ${
-          value ? "bg-[#00FFA3]" : "bg-content3"
-        }`}
-      >
-        <span
-          className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-            value ? "translate-x-5" : "translate-x-1"
-          }`}
-        />
-      </button>
-    </div>
+    <button onClick={onChange} role="switch" aria-checked={checked}
+      className={`relative inline-flex w-10 h-6 rounded-full transition-colors flex-shrink-0 focus:outline-none ${checked ? 'bg-[#00FFA3]' : 'bg-content3'}`}>
+      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-5' : 'translate-x-1'}`} />
+    </button>
   );
 }
 
@@ -2023,302 +2024,499 @@ function NotifRow({
 ================================================================================
 File path: app/analytics/page.tsx
 ================================================================================
-"use client";
-
-import { useState } from "react";
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { TrendingUp, TrendingDown, BarChart2, RefreshCw, ChevronDown } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  AreaChart,
-  Area,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  mockMonthlyData,
-  mockTopMerchants,
-  mockBalanceData,
-} from "@/lib/mock-data";
-import { ChevronDown, RefreshCw, Bot } from "lucide-react";
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
+} from 'recharts';
+import { apiClient } from '@/lib/api';
+import type { Category } from '@/lib/types';
 
-const AI_RECS = [
-  "Вы потратили на такси на 23% больше, чем в среднем. Попробуйте использовать метро — это сэкономит до 4 000 ₽/мес.",
-  "Расходы на супермаркеты составляют 8% дохода. Список покупок поможет снизить спонтанные траты на 15%.",
-  "У вас есть 92 450 ₽ свободных средств. Рассмотрите открытие накопительного счёта под 12% годовых — это +11 094 ₽ в год.",
-  "В марте вы тратили больше всего в пятницу и субботу. Планируйте крупные покупки на будни, когда акций больше.",
+// ─── Типы ответов аналитики ───────────────────────────────────────────────────
+interface CategoryStat {
+  category_id: number | null;
+  category_name: string;
+  total: number;
+  count: number;
+  color?: string;
+}
+
+interface MonthlyPoint {
+  month: string;     // YYYY-MM
+  income: number;
+  expense: number;
+  balance: number;
+}
+
+interface TopMerchant {
+  merchant: string;
+  total: number;
+  count: number;
+}
+
+const CHART_COLORS = [
+  '#00E5FF', '#FF3366', '#00FFA3', '#FFB800',
+  '#0066FF', '#FF6600', '#9B59B6', '#1ABC9C',
 ];
 
-const ACCOUNTS = ["Все счета", "Сбер Зарплатная", "Тинькофф Карта"];
-const CATEGORIES = [
-  "Все категории",
-  "Супермаркеты",
-  "Такси",
-  "Кафе",
-  "ЖКХ",
-  "Развлечения",
-  "Покупки",
-];
+const PERIODS = [
+  { label: '7 дней', days: 7 },
+  { label: '30 дней', days: 30 },
+  { label: '90 дней', days: 90 },
+  { label: '180 дней', days: 180 },
+  { label: 'Год', days: 365 },
+] as const;
+
+// ─── Скелетон ─────────────────────────────────────────────────────────────────
+function Skeleton({ className = '' }: { className?: string }) {
+  return <div className={`shimmer rounded-xl ${className}`} />;
+}
+
+// ─── Вспомогательные ─────────────────────────────────────────────────────────
+function getDateRange(days: number) {
+  const now = new Date();
+  const dateTo = now.toISOString().split('T')[0];
+  const dateFrom = new Date(now.getTime() - days * 86_400_000)
+    .toISOString().split('T')[0];
+  return { dateFrom, dateTo };
+}
+
+function formatMonth(yyyymm: string) {
+  const [y, m] = yyyymm.split('-');
+  const months = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
+    'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+  return `${months[Number(m) - 1]} ${y}`;
+}
 
 export default function AnalyticsPage() {
-  const [account, setAccount] = useState("Все счета");
-  const [category, setCategory] = useState("Все категории");
-  const [loadingRecs, setLoadingRecs] = useState(false);
-  const [recIndex, setRecIndex] = useState(0);
+  const [periodIdx, setPeriodIdx] = useState(1);       // 30 дней по умолчанию
+  const [periodOpen, setPeriodOpen] = useState(false);
 
-  const handleRefreshRecs = async () => {
-    setLoadingRecs(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setRecIndex((i) => (i + 1) % AI_RECS.length);
-    setLoadingRecs(false);
-  };
+  // Данные
+  const [expenseByCategory, setExpenseByCategory] = useState<CategoryStat[]>([]);
+  const [incomeByCategory, setIncomeByCategory] = useState<CategoryStat[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyPoint[]>([]);
+  const [topMerchants, setTopMerchants] = useState<TopMerchant[]>([]);
+  const [totals, setTotals] = useState({ income: 0, expense: 0, balance: 0 });
 
-  const maxMerchant = Math.max(...mockTopMerchants.map((m) => m.total));
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { dateFrom, dateTo } = getDateRange(PERIODS[periodIdx].days);
+
+      // Один запрос — всё считаем на фронте
+      const [txRes, balanceRes, budgetsRes] = await Promise.all([
+	apiClient.get('/transactions', {
+	  params: {
+	    datefrom: dateFrom,   // ← без подчёркивания
+	    dateto: dateTo,       // ← без подчёркивания
+	    pagesize: 500,
+	    page: 1,
+	  },
+	}),
+	apiClient.get('/accounts/total-balance'),
+      ]);
+
+      const allTx = txRes.data.items ?? [];
+
+      // Totals
+      let income = 0, expense = 0;
+      for (const tx of allTx) {
+	if (tx.transaction_type === 'income')  income  += Number(tx.amount);
+	if (tx.transaction_type === 'expense') expense += Number(tx.amount);
+      }
+      setTotals({
+	income,
+	expense,
+	balance: Number(balanceRes.data?.total_balance ?? 0),
+      });
+
+      // Категории расходов
+      const expCatMap: Record<string, number> = {};
+      const incCatMap: Record<string, number> = {};
+      for (const tx of allTx) {
+	const name = tx.category?.name ?? 'Прочее';
+	if (tx.transaction_type === 'expense') expCatMap[name] = (expCatMap[name] ?? 0) + Number(tx.amount);
+	if (tx.transaction_type === 'income')  incCatMap[name] = (incCatMap[name] ?? 0) + Number(tx.amount);
+      }
+      setExpenseByCategory(
+	Object.entries(expCatMap).map(([name, total], i) => ({
+	  category_name: name, total,
+	  color: CHART_COLORS[i % CHART_COLORS.length],
+	}))
+      );
+      setIncomeByCategory(
+	Object.entries(incCatMap).map(([name, total], i) => ({
+	  category_name: name, total,
+	  color: CHART_COLORS[i % CHART_COLORS.length],
+	}))
+      );
+
+      // Помесячно
+      const byMonth: Record<string, { income: number; expense: number }> = {};
+      for (const tx of allTx) {
+	const month = tx.transaction_date.slice(0, 7);
+	if (!byMonth[month]) byMonth[month] = { income: 0, expense: 0 };
+	if (tx.transaction_type === 'income')  byMonth[month].income  += Number(tx.amount);
+	if (tx.transaction_type === 'expense') byMonth[month].expense += Number(tx.amount);
+      }
+      setMonthlyData(
+	Object.entries(byMonth)
+	  .sort(([a], [b]) => a.localeCompare(b))
+	  .map(([month, v]) => ({ month, ...v, balance: v.income - v.expense }))
+      );
+
+      // Топ продавцов
+      const merchantMap: Record<string, { total: number; count: number }> = {};
+      for (const tx of allTx) {
+	if (tx.transaction_type !== 'expense' || !tx.merchant) continue;
+	if (!merchantMap[tx.merchant]) merchantMap[tx.merchant] = { total: 0, count: 0 };
+	merchantMap[tx.merchant].total += Number(tx.amount);
+	merchantMap[tx.merchant].count += 1;
+      }
+      setTopMerchants(
+	Object.entries(merchantMap)
+	  .map(([merchant, v]) => ({ merchant, ...v }))
+	  .sort((a, b) => b.total - a.total)
+	  .slice(0, 5)
+      );
+
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Ошибка загрузки');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [periodIdx]);
+  
+
+  useEffect(() => { load(); }, [load]);
+
+  const maxMerchant = Math.max(...topMerchants.map((m) => m.total), 1);
 
   return (
     <div className="space-y-8">
-      {/* Header */}
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <nav className="text-xs text-default-400 mb-1">
-            <span>Dashboard</span>
-            <span className="mx-1.5">/</span>
+            <span>Dashboard</span><span className="mx-1.5">/</span>
             <span className="text-foreground">Аналитика</span>
           </nav>
-          <h1 className="text-3xl font-bold text-foreground text-balance">Аналитика</h1>
+          <h1 className="text-3xl font-bold text-foreground">Аналитика</h1>
+          <p className="text-default-500 text-sm mt-1">
+            Статистика за период: <span className="text-foreground font-medium">{PERIODS[periodIdx].label}</span>
+          </p>
         </div>
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2">
-          <SelectFilter
-            value={account}
-            options={ACCOUNTS}
-            onChange={setAccount}
-          />
-          <SelectFilter
-            value={category}
-            options={CATEGORIES}
-            onChange={setCategory}
-          />
+
+        {/* Period selector */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={load}
+            disabled={isLoading}
+            className="p-2.5 rounded-xl bg-content2 border border-divider text-default-400 hover:text-foreground hover:bg-content3 transition-colors disabled:opacity-40"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+
+          <div className="relative">
+            <button
+              onClick={() => setPeriodOpen(!periodOpen)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors"
+            >
+              {PERIODS[periodIdx].label}
+              <ChevronDown className="w-4 h-4 text-default-400" />
+            </button>
+            {periodOpen && (
+              <div className="absolute right-0 mt-2 w-40 glass-card rounded-xl py-1 z-50 shadow-lg">
+                {PERIODS.map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setPeriodIdx(i); setPeriodOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${periodIdx === i ? 'text-[#00E5FF] font-medium' : 'text-foreground'
+                      }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Charts row 1: Monthly comparison + top merchants */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Monthly bar chart */}
-        <div className="glass-card rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-5 text-foreground">
-            Сравнение месяцев
-          </h2>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={mockMonthlyData} barCategoryGap="30%" barGap={4}>
+      {/* ── Error ──────────────────────────────────────────────────────────── */}
+      {error && (
+        <div className="p-4 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/30 text-sm text-[#FF3366]">
+          {error}
+        </div>
+      )}
+
+      {/* ── Totals row ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        {isLoading ? (
+          Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-28" />)
+        ) : (
+          <>
+            {[
+              { label: 'Доходы', value: totals.income, color: '#00FFA3', Icon: TrendingUp },
+              { label: 'Расходы', value: totals.expense, color: '#FF3366', Icon: TrendingDown },
+              { label: 'Баланс', value: totals.balance, color: '#00E5FF', Icon: BarChart2 },
+            ].map(({ label, value, color, Icon }) => (
+              <div key={label} className="glass-card rounded-2xl p-5 hover-lift">
+                <div className="flex items-start justify-between mb-3">
+                  <p className="text-xs text-default-500 font-medium uppercase tracking-wide">{label}</p>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: `${color}15`, color }}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {value.toLocaleString('ru-RU')} ₽
+                </p>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* ── Monthly bar chart ──────────────────────────────────────────────── */}
+      <div className="glass-card rounded-2xl p-6">
+        <h2 className="text-base font-semibold mb-5 text-foreground">Помесячная динамика</h2>
+        {isLoading ? (
+          <Skeleton className="h-64" />
+        ) : monthlyData.length === 0 ? (
+          <p className="text-center text-default-400 py-16 text-sm">Нет данных за период</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={monthlyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
               <XAxis
                 dataKey="month"
-                tick={{ fill: "#9CA3AF", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
+                tickFormatter={formatMonth}
+                tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                axisLine={false} tickLine={false}
               />
               <YAxis
-                tick={{ fill: "#9CA3AF", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
+                tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                axisLine={false} tickLine={false}
                 tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 width={36}
               />
               <Tooltip
                 contentStyle={{
-                  background: "#111113",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "12px",
-                  fontSize: 12,
+                  background: '#111113',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 12, fontSize: 12,
                 }}
-                formatter={(value: number) => [`${value.toLocaleString("ru-RU")} ₽`]}
-                labelStyle={{ color: "#9CA3AF" }}
+                formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`}
+                labelFormatter={formatMonth}
               />
-              <Legend
-                wrapperStyle={{ fontSize: 12, paddingTop: "12px" }}
-                formatter={(v) => (v === "income" ? "Доходы" : "Расходы")}
-              />
-              <Bar dataKey="income" fill="#00FFA3" radius={[4, 4, 0, 0]} name="income" />
-              <Bar dataKey="expense" fill="#FF3366" radius={[4, 4, 0, 0]} name="expense" />
+              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
+              <Bar dataKey="income" name="Доходы" fill="#00FFA3" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expense" name="Расходы" fill="#FF3366" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        )}
+      </div>
 
-        {/* Top merchants horizontal bar */}
+      {/* ── Categories row ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        {/* Расходы по категориям */}
         <div className="glass-card rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-5 text-foreground">
-            Топ-8 мест трат
-          </h2>
-          <div className="space-y-3">
-            {mockTopMerchants.map((m, i) => (
-              <div key={i} className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-default-600 truncate pr-2">{m.merchant}</span>
-                  <span className="font-semibold text-foreground tabular-nums flex-shrink-0">
-                    {m.total.toLocaleString("ru-RU")} ₽
-                  </span>
-                </div>
-                <div className="h-2 bg-content3 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#00E5FF] rounded-full transition-all"
-                    style={{ width: `${(m.total / maxMerchant) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Balance dynamics area chart */}
-      <div className="glass-card rounded-2xl p-6">
-        <h2 className="text-base font-semibold mb-5 text-foreground">
-          Динамика баланса
-        </h2>
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={mockBalanceData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#00E5FF" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#00E5FF" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-            <XAxis
-              dataKey="date"
-              tick={{ fill: "#9CA3AF", fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fill: "#9CA3AF", fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-              width={40}
-            />
-            <Tooltip
-              contentStyle={{
-                background: "#111113",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "12px",
-                fontSize: 12,
-              }}
-              formatter={(value: number) => [`${value.toLocaleString("ru-RU")} ₽`, "Баланс"]}
-              labelStyle={{ color: "#9CA3AF" }}
-            />
-            <Area
-              type="monotone"
-              dataKey="balance"
-              stroke="#00E5FF"
-              strokeWidth={2}
-              fill="url(#balanceGradient)"
-              dot={{ r: 3, fill: "#00E5FF" }}
-              activeDot={{ r: 5 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* AI Recommendations */}
-      <div className="glass-card rounded-2xl p-6 border border-[#00E5FF]/20">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#00E5FF]/10 text-[#00E5FF] flex items-center justify-center">
-              <Bot className="w-5 h-5" />
-            </div>
-            <h2 className="text-base font-semibold text-foreground">
-              Персональные рекомендации
-            </h2>
-          </div>
-          <button
-            onClick={handleRefreshRecs}
-            disabled={loadingRecs}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium disabled:opacity-60"
-          >
-            <RefreshCw className={`w-4 h-4 ${loadingRecs ? "animate-spin" : ""}`} />
-            {loadingRecs ? "Анализируем..." : "Обновить"}
-          </button>
-        </div>
-        <div className="space-y-3">
-          {loadingRecs ? (
-            <>
-              <SkeletonLine width="90%" />
-              <SkeletonLine width="75%" />
-              <SkeletonLine width="85%" />
-            </>
+          <h2 className="text-base font-semibold mb-5 text-foreground">Расходы по категориям</h2>
+          {isLoading ? (
+            <Skeleton className="h-52" />
+          ) : expenseByCategory.length === 0 ? (
+            <p className="text-center text-default-400 py-12 text-sm">Нет данных</p>
           ) : (
-            [AI_RECS[recIndex], AI_RECS[(recIndex + 1) % AI_RECS.length]].map(
-              (rec, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 p-4 rounded-xl bg-content2"
-                >
-                  <span className="text-[#00E5FF] text-sm font-bold flex-shrink-0 mt-0.5">
-                    {i + 1}
-                  </span>
-                  <p className="text-sm text-default-600 leading-relaxed">{rec}</p>
-                </div>
-              )
-            )
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <ResponsiveContainer width={160} height={160}>
+                <PieChart>
+                  <Pie
+                    data={expenseByCategory}
+                    dataKey="total"
+                    nameKey="category_name"
+                    cx="50%" cy="50%"
+                    innerRadius={50} outerRadius={75}
+                    paddingAngle={3}
+                  >
+                    {expenseByCategory.map((c, i) => (
+                      <Cell key={i} fill={c.color ?? CHART_COLORS[i % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      background: '#111113',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 12, fontSize: 12,
+                    }}
+                    formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex-1 space-y-2.5 w-full">
+                {expenseByCategory.map((c, i) => {
+                  const total = expenseByCategory.reduce((s, x) => s + x.total, 0);
+                  const pct = total > 0 ? Math.round((c.total / total) * 100) : 0;
+                  return (
+                    <div key={i}>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={{ background: c.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+                          <span className="text-default-500">{c.category_name || 'Прочее'}</span>
+                        </div>
+                        <span className="font-medium text-foreground">
+                          {c.total.toLocaleString('ru-RU')} ₽ · {pct}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${pct}%`,
+                            background: c.color ?? CHART_COLORS[i % CHART_COLORS.length],
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Доходы по категориям */}
+        <div className="glass-card rounded-2xl p-6">
+          <h2 className="text-base font-semibold mb-5 text-foreground">Доходы по категориям</h2>
+          {isLoading ? (
+            <Skeleton className="h-52" />
+          ) : incomeByCategory.length === 0 ? (
+            <p className="text-center text-default-400 py-12 text-sm">Нет данных</p>
+          ) : (
+            <div className="space-y-3">
+              {incomeByCategory.map((c, i) => {
+                const total = incomeByCategory.reduce((s, x) => s + x.total, 0);
+                const pct = total > 0 ? Math.round((c.total / total) * 100) : 0;
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full"
+                          style={{ background: c.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+                        <span className="text-default-500">{c.category_name || 'Прочее'}</span>
+                      </div>
+                      <span className="font-medium text-foreground">
+                        {c.total.toLocaleString('ru-RU')} ₽
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${pct}%`,
+                          background: c.color ?? CHART_COLORS[i % CHART_COLORS.length],
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
-    </div>
-  );
-}
 
-function SelectFilter({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: string[];
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors whitespace-nowrap"
-      >
-        {value}
-        <ChevronDown className="w-3.5 h-3.5 text-default-400" />
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-48 rounded-xl py-1 z-50 shadow-xl border border-divider" style={{ background: "var(--heroui-content2)" }}>
-          {options.map((o) => (
-            <button
-              key={o}
-              onClick={() => {
-                onChange(o);
-                setOpen(false);
-              }}
-              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${
-                o === value ? "text-[#00E5FF] font-medium" : "text-foreground"
-              }`}
-            >
-              {o}
-            </button>
-          ))}
+
+      {/* ── Top merchants ──────────────────────────────────────────────────── */}
+      <div className="glass-card rounded-2xl p-6">
+        <h2 className="text-base font-semibold mb-5 text-foreground">Топ-5 продавцов по расходам</h2>
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-10" />)}
+          </div>
+        ) : topMerchants.length === 0 ? (
+          <p className="text-center text-default-400 py-10 text-sm">Нет данных о продавцах</p>
+        ) : (
+          <div className="space-y-3">
+            {topMerchants.map((m, i) => {
+              const pct = Math.round((m.total / maxMerchant) * 100);
+              return (
+                <div key={i} className="flex items-center gap-4">
+                  <span className="w-5 text-xs text-default-400 text-right flex-shrink-0">
+                    #{i + 1}
+                  </span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="font-medium text-foreground">{m.merchant}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-default-400">{m.count} операций</span>
+                        <span className="font-semibold tabular-nums text-[#FF3366]">
+                          {m.total.toLocaleString('ru-RU')} ₽
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#FF3366] to-[#FF6600]"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Income vs Expense trend line ───────────────────────────────────── */}
+      {!isLoading && monthlyData.length > 1 && (
+        <div className="glass-card rounded-2xl p-6">
+          <h2 className="text-base font-semibold mb-5 text-foreground">Тренд баланса</h2>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={monthlyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <XAxis
+                dataKey="month"
+                tickFormatter={formatMonth}
+                tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                axisLine={false} tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                axisLine={false} tickLine={false}
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                width={36}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: '#111113',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 12, fontSize: 12,
+                }}
+                formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`}
+                labelFormatter={formatMonth}
+              />
+              <Line
+                type="monotone" dataKey="balance" name="Баланс"
+                stroke="#00E5FF" strokeWidth={2}
+                dot={{ r: 4, fill: '#00E5FF' }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       )}
-    </div>
-  );
-}
 
-function SkeletonLine({ width }: { width: string }) {
-  return (
-    <div
-      className="h-5 bg-content2 rounded-lg shimmer"
-      style={{ width }}
-    />
+    </div>
   );
 }
 
@@ -2741,6 +2939,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { useAuth } from '@/lib/hooks/useAuth';
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -2755,10 +2954,20 @@ export default function Sidebar() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const { user, logout } = useAuth();
+  useEffect(() => { setMounted(true); }, []);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const initials = mounted
+    ? (user?.full_name ?? user?.username ?? 'AF')
+	.split(' ')
+	.map((w) => w[0])
+	.join('')
+	.toUpperCase()
+	.slice(0, 2)
+    : 'AF';
+    useEffect(() => {
+      setMounted(true);
+    }, []);
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-content1 border-r border-divider flex flex-col z-40">
@@ -2822,22 +3031,28 @@ export default function Sidebar() {
         )}
 
         {/* User Profile */}
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-content2 hover:bg-content3 transition-colors">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-bold text-black">AF</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">AutoFlow User</p>
-            <p className="text-xs text-default-500 truncate">user@autoflow.dev</p>
-          </div>
-          <button
-            onClick={() => router.push("/login")}
-            aria-label="Выйти"
-            className="text-default-400 hover:text-[#FF3366] transition-colors p-1 flex-shrink-0"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
+	  <div className="flex items-center gap-3 p-3 rounded-xl bg-content2 hover:bg-content3 transition-colors">
+	    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center flex-shrink-0">
+	      <span className="text-xs font-bold text-black" suppressHydrationWarning>
+		{initials}
+	      </span>
+	    </div>
+	    <div className="flex-1 min-w-0">
+	      <p className="text-sm font-medium truncate" suppressHydrationWarning>
+		{mounted ? (user?.full_name ?? user?.username ?? 'AutoFlow User') : ''}
+	      </p>
+	      <p className="text-xs text-default-500 truncate" suppressHydrationWarning>
+		{mounted ? (user?.email ?? '') : ''}
+	      </p>
+	    </div>
+	    <button
+	      onClick={logout}
+	      aria-label="Выйти"
+	      className="text-default-400 hover:text-[#FF3366] transition-colors p-1 flex-shrink-0"
+	    >
+	      <LogOut className="w-4 h-4" />
+	    </button>
+	</div>
       </div>
     </aside>
   );
@@ -2846,8 +3061,487 @@ export default function Sidebar() {
 
 
 ================================================================================
+File path: lib/api.ts
+================================================================================
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import Cookies from 'js-cookie';
+
+// ─── Константы ───────────────────────────────────────────────────────────────
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL;
+
+// ─── Основной клиент ─────────────────────────────────────────────────────────
+export const apiClient = axios.create({
+  baseURL: API_URL,
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 15000,
+});
+
+// ─── Интерсептор запроса: добавляем токен ─────────────────────────────────────
+apiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = Cookies.get('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// ─── Флаг чтобы не запускать refresh параллельно несколько раз ───────────────
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value: string) => void;
+  reject: (error: unknown) => void;
+}> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) prom.reject(error);
+    else prom.resolve(token!);
+  });
+  failedQueue = [];
+};
+
+// ─── Интерсептор ответа: обработка 401 + refresh токен ───────────────────────
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
+
+    // Если 401 и это не повторный запрос и не сам эндпоинт /auth/
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/')
+    ) {
+      if (isRefreshing) {
+        // Ставим запрос в очередь пока идёт refresh
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return apiClient(originalRequest);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const refreshToken = Cookies.get('refresh_token');
+
+      if (!refreshToken) {
+        // Нет refresh-токена — выходим
+        clearAuthAndRedirect();
+        return Promise.reject(error);
+      }
+
+      try {
+        const { data } = await axios.post(`${API_URL}/auth/refresh`, {
+          refresh_token: refreshToken,
+        });
+
+        const newAccessToken: string = data.access_token;
+        Cookies.set('access_token', newAccessToken, {
+          expires: 1 / 48, // 30 минут
+          sameSite: 'Lax',
+          secure: process.env.NODE_ENV === 'production',
+        });
+
+        processQueue(null, newAccessToken);
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        clearAuthAndRedirect();
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+// ─── Вспомогательная функция очистки ─────────────────────────────────────────
+function clearAuthAndRedirect() {
+  Cookies.remove('access_token');
+  Cookies.remove('refresh_token');
+  Cookies.remove('user');
+  if (typeof window !== 'undefined') {
+    window.location.href = '/login';
+  }
+}
+
+// ─── Хелпер логина ───────────────────────────────────────────────────────────
+export async function loginRequest(login: string, password: string) {
+  const response = await apiClient.post('/auth/login', {
+    login,
+    password,
+    // Content-Type: application/json — уже стоит по умолчанию в apiClient
+  });
+  return response.data; // { user: {...}, tokens: { access_token, refresh_token, token_type } }
+}
+
+
+
+
+================================================================================
+File path: lib/hooks/useAuth.ts
+================================================================================
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
+import { apiClient, loginRequest } from '@/lib/api';
+import type { User } from '@/lib/types';
+
+interface AuthState {
+  user: User | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+const COOKIE_OPTS = {
+  sameSite: 'Lax' as const,
+  secure: true,
+  domain: 'autoflowhub.space',
+};
+
+export function useAuth() {
+  const router = useRouter();
+  const [state, setState] = useState<AuthState>(() => {
+    // Начальный стейт — из куки для мгновенного рендера без мигания
+    const cached = Cookies.get('user');
+    if (cached) {
+      try {
+        return { user: JSON.parse(cached), isLoading: true, error: null };
+      } catch {
+        return { user: null, isLoading: true, error: null };
+      }
+    }
+    return { user: null, isLoading: true, error: null };
+  });
+
+  useEffect(() => {
+    const token = Cookies.get('access_token');
+
+    if (!token) {
+      setState({ user: null, isLoading: false, error: null });
+      return;
+    }
+
+    // Всегда идём на бэкенд за актуальными данными
+    apiClient
+      .get<User>('/auth/me')
+      .then(({ data }) => {
+        // Обновляем куку свежими данными с бэкенда
+        Cookies.set('user', JSON.stringify(data), COOKIE_OPTS);
+        setState({ user: data, isLoading: false, error: null });
+      })
+      .catch(() => {
+        // Токен протух или невалиден — чистим всё
+        Cookies.remove('access_token', { domain: 'autoflowhub.space' });
+        Cookies.remove('refresh_token', { domain: 'autoflowhub.space' });
+        Cookies.remove('user',          { domain: 'autoflowhub.space' });
+        setState({ user: null, isLoading: false, error: null });
+      });
+  }, []);
+
+  const login = useCallback(
+    async (loginValue: string, password: string) => {
+      setState((s) => ({ ...s, isLoading: true, error: null }));
+      try {
+        const data = await loginRequest(loginValue, password);
+        const { access_token, refresh_token } = data.tokens;
+        const user: User = data.user;
+
+        Cookies.set('access_token',  access_token,          { ...COOKIE_OPTS, expires: 1 / 48 });
+        Cookies.set('refresh_token', refresh_token,         { ...COOKIE_OPTS, expires: 7 });
+        Cookies.set('user',          JSON.stringify(user),  { ...COOKIE_OPTS, expires: 7 });
+
+        setState({ user, isLoading: false, error: null });
+        router.push('/dashboard');
+      } catch (err: any) {
+        const detail = err.response?.data?.detail || 'Ошибка авторизации';
+        setState({ user: null, isLoading: false, error: detail });
+      }
+    },
+    [router]
+  );
+
+  const logout = useCallback(() => {
+    Cookies.remove('access_token',  { domain: 'autoflowhub.space' });
+    Cookies.remove('refresh_token', { domain: 'autoflowhub.space' });
+    Cookies.remove('user',          { domain: 'autoflowhub.space' });
+    setState({ user: null, isLoading: false, error: null });
+    router.push('/login');
+  }, [router]);
+
+  const updateUser = useCallback((updated: Partial<User>) => {
+    setState((s) => {
+      const newUser = s.user ? { ...s.user, ...updated } : null;
+      if (newUser) {
+        // Сразу синхронизируем куку при обновлении профиля
+        Cookies.set('user', JSON.stringify(newUser), { ...COOKIE_OPTS, expires: 7 });
+      }
+      return { ...s, user: newUser };
+    });
+  }, []);
+
+  return {
+    user:            state.user,
+    isLoading:       state.isLoading,
+    error:           state.error,
+    login,
+    logout,
+    updateUser,
+    isAuthenticated: !!state.user,
+  };
+}
+
+
+
+
+================================================================================
+File path: lib/hooks/useApi.ts
+================================================================================
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { AxiosError } from 'axios';
+
+interface ApiState<T> {
+  data: T | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+export function useApi<T>(
+  fetcher: () => Promise<T>,
+  deps: unknown[] = []
+) {
+  const [state, setState] = useState<ApiState<T>>({
+    data: null,
+    isLoading: true,
+    error: null,
+  });
+
+  // Предотвращает setState на размонтированном компоненте
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const load = useCallback(async () => {
+    setState((s) => ({ ...s, isLoading: true, error: null }));
+    try {
+      const data = await fetcher();
+      if (mountedRef.current) {
+        setState({ data, isLoading: false, error: null });
+      }
+    } catch (err) {
+      if (mountedRef.current) {
+        const message =
+          err instanceof AxiosError
+            ? err.response?.data?.detail || err.message
+            : 'Неизвестная ошибка';
+        setState({ data: null, isLoading: false, error: message });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { ...state, refetch: load };
+}
+
+
+
+================================================================================
 File path: lib/design-tokens.ts
 ================================================================================
+
+
+
+================================================================================
+File path: lib/types.ts
+================================================================================
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+export interface User {
+  id: number;
+  email: string;
+  username: string;
+  full_name: string | null;
+  is_active: boolean;
+  is_superuser: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserProfile extends User {
+  total_accounts: number;
+  total_transactions: number;
+}
+
+// ─── Account ──────────────────────────────────────────────────────────────────
+export type AccountType =
+  | 'card'
+  | 'bank_account'
+  | 'cash'
+  | 'investment'
+  | 'crypto'
+  | 'other';
+
+export type Currency = 'RUB' | 'USD' | 'EUR' | 'GBP' | 'CNY' | 'BTC' | 'ETH';
+
+export interface Account {
+  id:                number;
+  name:              string;
+  account_type:      'card' | 'bank_account' | 'cash';
+  currency:          string;
+  balance:           string;
+  bank_name?:        string;
+  last_four_digits?: string;
+  is_active:         boolean;
+  include_in_total:  boolean;
+}
+
+export interface AccountCreate {
+  name: string;
+  account_type: AccountType;
+  currency: Currency;
+  balance?: number;
+  bank_name?: string;
+  account_number?: string;
+  last_four_digits?: string;
+  icon?: string;
+  color?: string;
+  include_in_total?: boolean;
+}
+
+export interface AccountUpdate extends Partial<AccountCreate> {
+  is_active?: boolean;
+}
+
+// ─── Category ─────────────────────────────────────────────────────────────────
+export interface Category {
+  id:            number;
+  name:          string;
+  category_type: 'income' | 'expense';
+  is_system:     boolean;
+  icon?:         string | null;
+  color?:        string | null;
+}
+
+// ─── Transaction ──────────────────────────────────────────────────────────────
+export type TransactionType = 'all' | 'income' | 'expense';
+
+export interface Transaction {
+  id:               number;
+  transaction_date: string;       // "2026-03-18"
+  transaction_type: 'income' | 'expense' | 'transfer';
+  amount:           string;       // Decimal → строка
+  merchant:         string | null;
+  description:      string | null;
+  external_id:      string | null;
+  import_source:    string | null;
+  account?: {
+    id:   number;
+    name: string;
+  };
+  category?: {
+    id:   number;
+    name: string;
+  } | null;
+}
+
+export interface TransactionCreate {
+  account_id: number;
+  category_id?: number;
+  target_account_id?: number;
+  transaction_date: string; // YYYY-MM-DD
+  amount: number;
+  transaction_type: TransactionType;
+  description?: string;
+  merchant?: string;
+  notes?: string;
+}
+
+// ─── Budget ───────────────────────────────────────────────────────────────────
+export type PeriodType = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export interface Budget {
+  id: number;
+  user_id: number;
+  category_id: number | null;
+  name: string;
+  amount: number;
+  period_type: PeriodType;
+  start_date: string;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+  category?: Category;
+}
+
+// ─── API Responses ────────────────────────────────────────────────────────────
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
+export interface TotalResponse {
+  total: number;
+}
+
+export interface TotalBalanceResponse {
+  total_balance: number;
+  currency: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
+export interface TokensPayload {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
+export interface LoginResponse {
+  user: User;
+  tokens: TokensPayload;
+}
+
+// ─── UI-совместимые хелперы ───────────────────────────────────────────────────
+// Конвертер дат: бэкенд ISO -> UI DD.MM.YYYY
+export function formatDateUI(isoDate: string): string {
+  if (!isoDate) return '';
+  const [y, m, d] = isoDate.split('-');
+  return `${d}.${m}.${y}`;
+}
+// Конвертер дат: UI DD.MM.YYYY -> бэкенд ISO
+export function formatDateAPI(ddmmyyyy: string): string {
+  const [d, m, y] = ddmmyyyy.split('.');
+  return `${y}-${m}-${d}`;
+}
 
 
 

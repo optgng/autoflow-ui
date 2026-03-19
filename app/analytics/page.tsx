@@ -86,9 +86,9 @@ export default function AnalyticsPage() {
       const [txRes, balanceRes, budgetsRes] = await Promise.all([
         apiClient.get('/transactions', {
           params: {
-            datefrom: dateFrom,   // ← без подчёркивания
-            dateto: dateTo,       // ← без подчёркивания
-            pagesize: 500,
+            date_from: dateFrom,  
+            date_to: dateTo,
+            page_size: 500,
             page: 1,
           },
         }),
@@ -200,14 +200,14 @@ export default function AnalyticsPage() {
           <div className="relative">
             <button
               onClick={() => setPeriodOpen(!periodOpen)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors backdrop-blur-2xl"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors"
             >
               {PERIODS[periodIdx].label}
               <ChevronDown className="w-4 h-4 text-default-400" />
             </button>
             {periodOpen && (
-              <div className="absolute right-0 mt-2 w-40 glass-card rounded-xl py-1 z-50 shadow-lg">
-                {PERIODS.map((p, i) => (
+              <div className="absolute right-0 mt-2 w-44 glass-dropdown rounded-xl py-1 z-50 shadow-lg animate-dropdown">
+		{PERIODS.map((p, i) => (
                   <button
                     key={i}
                     onClick={() => { setPeriodIdx(i); setPeriodOpen(false); }}

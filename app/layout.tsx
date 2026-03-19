@@ -22,22 +22,17 @@ export const metadata: Metadata = {
     "Аналитика доходов и расходов, управление счетами и бюджетом в одном месте.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="ru"
-      suppressHydrationWarning
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
-    >
+    <html lang="ru" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <Providers>
+          {/* ← Ambient background для glassmorphism */}
+          <div className="ambient-bg" aria-hidden="true" />
           <AppShell>{children}</AppShell>
         </Providers>
       </body>
     </html>
   );
 }
+

@@ -46,7 +46,7 @@ export default function Sidebar() {
     }, []);
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-content1 border-r border-divider flex flex-col z-40">
+    <aside className="glass-nav fixed left-0 top-0 h-screen w-64 flex flex-col z-40">
       {/* Logo */}
       <div className="p-6 border-b border-divider">
         <div className="flex items-center gap-3">
