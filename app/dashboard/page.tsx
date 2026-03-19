@@ -43,7 +43,7 @@ export default function DashboardPage() {
   const isDark = resolvedTheme === 'dark'
 
   const COLORS = {
-    income: isDark ? '#00FFA3' : '#00874A',
+    income: isDark ? '#00FFA3' : 'rgb(0, 135, 74)',
     expense: isDark ? '#FF3366' : '#DC2626',
     primary: isDark ? '#3D7EFF' : '#1A6EF5',
   };
