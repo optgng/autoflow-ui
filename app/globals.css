@@ -397,81 +397,81 @@
 
   /* ═══ MODAL ════════════════════════════════════════════════════════ */
   .animate-overlay-in {
-    animation: overlay-in 0.22s ease both;
+    animation: overlay-in 0.35s ease both;
   }
 
   .animate-overlay-out {
-    animation: overlay-out 0.18s ease both;
+    animation: overlay-out 0.28s ease both;
   }
 
   .animate-modal-overlay {
-    animation: overlay-in 0.22s ease both;
+    animation: overlay-in 0.35s ease both;
   }
 
   .animate-modal-content {
-    animation: modal-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: modal-in 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .animate-modal-out {
-    animation: modal-out 0.18s cubic-bezier(0.4, 0, 1, 1) both;
+    animation: modal-out 0.28s cubic-bezier(0.4, 0, 1, 1) both;
   }
 
   /* ═══ DROPDOWN ═════════════════════════════════════════════════════ */
   .animate-dropdown {
-    animation: dropdown-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: dropdown-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
     transform-origin: top center;
   }
 
   .animate-dropdown-out {
-    animation: dropdown-out 0.15s cubic-bezier(0.4, 0, 1, 1) both;
+    animation: dropdown-out 0.22s cubic-bezier(0.4, 0, 1, 1) both;
     transform-origin: top center;
   }
 
   /* ═══ STAGGER ══════════════════════════════════════════════════════ */
   /* animation-fill-mode: both — элемент остаётся видимым после анимации */
   .stagger-container>* {
-    animation: stagger-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: stagger-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .stagger-container>*:nth-child(1) {
-    animation-delay: 0.04s;
+    animation-delay: 0.05s;
   }
 
   .stagger-container>*:nth-child(2) {
-    animation-delay: 0.10s;
+    animation-delay: 0.12s;
   }
 
   .stagger-container>*:nth-child(3) {
-    animation-delay: 0.16s;
+    animation-delay: 0.19s;
   }
 
   .stagger-container>*:nth-child(4) {
-    animation-delay: 0.22s;
+    animation-delay: 0.26s;
   }
 
   .stagger-container>*:nth-child(5) {
-    animation-delay: 0.28s;
+    animation-delay: 0.33s;
   }
 
   .stagger-container>*:nth-child(6) {
-    animation-delay: 0.32s;
+    animation-delay: 0.40s;
   }
 
   .stagger-container>*:nth-child(7) {
-    animation-delay: 0.36s;
+    animation-delay: 0.46s;
   }
 
   .stagger-container>*:nth-child(n+8) {
-    animation-delay: 0.38s;
+    animation-delay: 0.50s;
   }
 
   /* ═══ TABS ══════════════════════════════════════════════════════════ */
   .animate-tab-in {
-    animation: tab-in-right 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: tab-in-right 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .animate-tab-back {
-    animation: tab-in-left 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: tab-in-left 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
 }

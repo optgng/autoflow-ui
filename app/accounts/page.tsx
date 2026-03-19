@@ -229,88 +229,68 @@ export default function AccountsPage() {
           {accounts.map(acc => (
             <div key={acc.id} className="glass-card rounded-2xl p-5 transition-all duration-300">
               {editId === acc.id ? (
-                /* ── Режим редактирования ── */
-                <div className="space-y-4 animate-tab-in">
+                // key меняется при входе в режим редактирования → animate-tab-in срабатывает
+                <div key={`edit-${acc.id}`} className="space-y-4 animate-tab-in">
                   {error && (
-                    <div className="flex items-center gap-2 text-sm text-[#FF3366]">
+                    <div className="flex items-center gap-2 text-sm text-danger">
                       <AlertCircle className="w-4 h-4" /> {error}
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <label className="text-xs text-default-400">Название</label>
-                      <input
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
-                        className="input-field h-9 text-sm"
-                      />
+                      <input value={editName} onChange={e => setEditName(e.target.value)}
+                        className="input-field h-9 text-sm" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-xs text-default-400">Валюта</label>
-                      <SelectField
-                        value={editCurrency}
-                        onChange={setEditCurrency}
-                        options={CURRENCY_OPTIONS}
-                      />
+                      <SelectField value={editCurrency} onChange={setEditCurrency} options={CURRENCY_OPTIONS} />
                     </div>
                     {acc.account_type === 'cash' && (
                       <div className="space-y-1.5">
                         <label className="text-xs text-default-400">Баланс</label>
-                        <input
-                          type="number"
-                          value={editBalance}
-                          onChange={e => setEditBalance(e.target.value)}
-                          placeholder="0"
-                          className="input-field h-9 text-sm"
-                        />
+                        <input type="number" value={editBalance} onChange={e => setEditBalance(e.target.value)}
+                          placeholder="0" className="input-field h-9 text-sm" />
                       </div>
                     )}
                     {acc.account_type !== 'cash' && (
                       <>
                         <div className="space-y-1.5">
                           <label className="text-xs text-default-400">Банк</label>
-                          <input
-                            value={editBank}
-                            onChange={e => setEditBank(e.target.value)}
-                            placeholder="Сбербанк"
-                            className="input-field h-9 text-sm"
-                          />
+                          <input value={editBank} onChange={e => setEditBank(e.target.value)}
+                            placeholder="Сбербанк" className="input-field h-9 text-sm" />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-xs text-default-400">Тип</label>
-                          <SelectField
-                            value={editType}
-                            onChange={(v) => setEditType(v as BankAccountType)}
-                            options={ACCOUNT_TYPE_OPTIONS}
-                          />
+                          <SelectField value={editType}
+                            onChange={v => setEditType(v as BankAccountType)}
+                            options={ACCOUNT_TYPE_OPTIONS} />
                         </div>
                       </>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleSave(acc)}
-                      disabled={saving}
-                      className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold disabled:opacity-60"
-                    >
+                    <button onClick={() => handleSave(acc)} disabled={saving}
+                      className="flex items-center gap-1.5 px-4 h-9 rounded-xl
+                       bg-gradient-to-r from-[#3D7EFF] to-[#1644B8]
+                       text-white text-sm font-semibold disabled:opacity-60
+                       hover:opacity-90 transition-opacity">
                       {saving
                         ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        : <Check className="w-3.5 h-3.5" />
-                      }
+                        : <Check className="w-3.5 h-3.5" />}
                       Сохранить
                     </button>
-                    <button
-                      onClick={() => setEditId(null)}
-                      className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-content2 border border-divider text-sm text-default-400 hover:text-foreground"
-                    >
+                    <button onClick={() => setEditId(null)}
+                      className="flex items-center gap-1.5 px-4 h-9 rounded-xl
+                       bg-content2 border border-divider text-sm
+                       text-default-400 hover:text-foreground transition-colors">
                       <X className="w-3.5 h-3.5" /> Отмена
                     </button>
                   </div>
                 </div>
               ) : (
-                /* ── Режим просмотра ── */
-                <div className="flex items-center justify-between animate-tab-in">
-                  {/* Левая часть — иконка + текст */}
+                // key меняется при выходе из редактирования → animate-tab-in срабатывает обратно
+                <div key={`view-${acc.id}`} className="flex items-center justify-between animate-tab-in">
                   <div className="flex items-center gap-4">
                     <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                       {TYPE_ICONS[acc.account_type]}
@@ -333,143 +313,143 @@ export default function AccountsPage() {
                         <p className="text-xs text-default-400 mt-0.5">{acc.currency}</p>
                       )}
                     </div>
-                  </div> {/* ← конец левой части */}
+                  </div>
 
-                  {/* Правая часть — баланс + кнопки */}
                   <div className="flex items-center gap-4">
                     <p className="text-lg font-bold text-foreground">
                       {formatBalance(acc.balance, acc.currency)}
                     </p>
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openEdit(acc)}
-                        className="p-2 rounded-lg text-default-400 hover:text-foreground hover:bg-content2 transition-all"
-                        aria-label="Редактировать"
-                      >
+                      <button onClick={() => openEdit(acc)}
+                        className="p-2 rounded-lg text-default-400 hover:text-foreground
+                         hover:bg-content2 transition-all" aria-label="Редактировать">
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => { setDeleteId(acc.id); setError(''); }}
-                        className="p-2 rounded-lg text-default-400 hover:text-[#FF3366] hover:bg-[#FF3366]/10 transition-all"
-                        aria-label="Удалить"
-                      >
+                      <button onClick={() => { setDeleteId(acc.id); setError(''); }}
+                        className="p-2 rounded-lg text-default-400 hover:text-danger
+                         hover:bg-danger/10 transition-all" aria-label="Удалить">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                  </div> {/* ← конец правой части */}
+                  </div>
                 </div>
               )}
             </div>
           ))}
         </div>
-      )}
+      )
+      }
 
       {/* ── Модал создания ── */}
-      {createMounted && (
-        <ModalPortal>
-          <div
-            className={`fixed inset-0 z-[100] flex items-center justify-center px-4
-                  ${createAnimating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
-            onClick={() => { setShowCreate(false); setError(''); }}
-          >
-            <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" />
+      {
+        createMounted && (
+          <ModalPortal>
             <div
-              className={`relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4
-                    ${createAnimating ? 'animate-modal-content' : 'animate-modal-out'}`}
-              onClick={e => e.stopPropagation()}
+              className={`fixed inset-0 z-[100] flex items-center justify-center px-4
+                  ${createAnimating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
+              onClick={() => { setShowCreate(false); setError(''); }}
             >
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-foreground">Новый счёт (наличные)</h2>
-                <button onClick={() => setShowCreate(false)} className="text-default-400 hover:text-foreground p-1 rounded-lg hover:bg-white/5 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              {error && (
-                <p className="text-sm text-danger flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4" /> {error}
-                </p>
-              )}
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-default-500">Название</label>
-                  <input value={cashName} onChange={e => setCashName(e.target.value)}
-                    placeholder="Кошелёк" className="input-field" />
+              <div className="absolute inset-0 bg-black/55 backdrop-blur-md" />
+              <div
+                className={`relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4
+                    ${createAnimating ? 'animate-modal-content' : 'animate-modal-out'}`}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="font-semibold text-foreground">Новый счёт (наличные)</h2>
+                  <button onClick={() => setShowCreate(false)} className="text-default-400 hover:text-foreground p-1 rounded-lg hover:bg-white/5 transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-default-500">Валюта</label>
-                  <SelectField value={cashCurrency} onChange={setCashCurrency} options={CURRENCY_OPTIONS} />
+                {error && (
+                  <p className="text-sm text-danger flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4" /> {error}
+                  </p>
+                )}
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-default-500">Название</label>
+                    <input value={cashName} onChange={e => setCashName(e.target.value)}
+                      placeholder="Кошелёк" className="input-field" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-default-500">Валюта</label>
+                    <SelectField value={cashCurrency} onChange={setCashCurrency} options={CURRENCY_OPTIONS} />
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={handleCreate}
-                disabled={creating || !cashName.trim()}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8]
+                <button
+                  onClick={handleCreate}
+                  disabled={creating || !cashName.trim()}
+                  className="w-full h-11 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8]
                      text-white text-sm font-semibold disabled:opacity-60
                      flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-              >
-                {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Создать'}
-              </button>
+                >
+                  {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Создать'}
+                </button>
+              </div>
             </div>
-          </div>
-        </ModalPortal>
-      )}
+          </ModalPortal>
+        )
+      }
 
       {/* ── Модал удаления ── */}
-      {deleteMounted && displayDeleteAcc && (
-        <ModalPortal>
-          <div
-            className={`fixed inset-0 z-[100] flex items-center justify-center px-4
-                  ${deleteAnimating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
-            onClick={() => { setDeleteId(null); setError(''); }}
-          >
-            <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" />
+      {
+        deleteMounted && displayDeleteAcc && (
+          <ModalPortal>
             <div
-              className={`relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4
-                    ${deleteAnimating ? 'animate-modal-content' : 'animate-modal-out'}`}
-              onClick={e => e.stopPropagation()}
+              className={`fixed inset-0 z-[100] flex items-center justify-center px-4
+                  ${deleteAnimating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
+              onClick={() => { setDeleteId(null); setError(''); }}
             >
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-foreground">Удалить счёт?</h2>
-                <button onClick={() => setDeleteId(null)} className="text-default-400 hover:text-foreground p-1 rounded-lg hover:bg-white/5 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              {error && (
-                <p className="text-sm text-danger flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4" /> {error}
-                </p>
-              )}
-              <div className="p-4 rounded-xl bg-content2 space-y-1">
-                <p className="font-medium text-foreground">{displayDeleteAcc.name}</p>
-                {displayDeleteAcc.last_four_digits && (
-                  <p className="text-xs text-default-400">•••• {displayDeleteAcc.last_four_digits}</p>
+              <div className="absolute inset-0 bg-black/55 backdrop-blur-md" />
+              <div
+                className={`relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4
+                    ${deleteAnimating ? 'animate-modal-content' : 'animate-modal-out'}`}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between">
+                  <h2 className="font-semibold text-foreground">Удалить счёт?</h2>
+                  <button onClick={() => setDeleteId(null)} className="text-default-400 hover:text-foreground p-1 rounded-lg hover:bg-white/5 transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                {error && (
+                  <p className="text-sm text-danger flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4" /> {error}
+                  </p>
                 )}
-              </div>
-              <p className="text-sm text-default-400">
-                {displayDeleteAcc.account_type !== 'cash'
-                  ? 'Банковский счёт будет деактивирован. История транзакций сохранится.'
-                  : 'Счёт наличных и все связанные данные будут удалены безвозвратно.'}
-              </p>
-              <div className="flex gap-3">
-                <button onClick={() => setDeleteId(null)}
-                  className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3
+                <div className="p-4 rounded-xl bg-content2 space-y-1">
+                  <p className="font-medium text-foreground">{displayDeleteAcc.name}</p>
+                  {displayDeleteAcc.last_four_digits && (
+                    <p className="text-xs text-default-400">•••• {displayDeleteAcc.last_four_digits}</p>
+                  )}
+                </div>
+                <p className="text-sm text-default-400">
+                  {displayDeleteAcc.account_type !== 'cash'
+                    ? 'Банковский счёт будет деактивирован. История транзакций сохранится.'
+                    : 'Счёт наличных и все связанные данные будут удалены безвозвратно.'}
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setDeleteId(null)}
+                    className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3
                        transition-colors text-sm font-medium">
-                  Отмена
-                </button>
-                <button onClick={handleDelete} disabled={deleting}
-                  className="flex-1 h-10 rounded-xl bg-danger hover:bg-danger/80
+                    Отмена
+                  </button>
+                  <button onClick={handleDelete} disabled={deleting}
+                    className="flex-1 h-10 rounded-xl bg-danger hover:bg-danger/80
                        text-white text-sm font-semibold transition-colors
                        disabled:opacity-60 flex items-center justify-center gap-2">
-                  {deleting
-                    ? <RefreshCw className="w-4 h-4 animate-spin" />
-                    : displayDeleteAcc.account_type !== 'cash' ? 'Деактивировать' : 'Удалить'}
-                </button>
+                    {deleting
+                      ? <RefreshCw className="w-4 h-4 animate-spin" />
+                      : displayDeleteAcc.account_type !== 'cash' ? 'Деактивировать' : 'Удалить'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </ModalPortal>
-      )}
+          </ModalPortal>
+        )
+      }
 
-    </div>
+    </div >
   );
 }

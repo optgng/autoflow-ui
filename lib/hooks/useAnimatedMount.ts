@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export function useAnimatedMount(visible: boolean, duration = 200) {
+export function useAnimatedMount(visible: boolean, duration = 300) {
   const [mounted, setMounted] = useState(visible);
   const [animating, setAnimating] = useState(visible);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();

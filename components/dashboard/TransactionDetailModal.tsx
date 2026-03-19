@@ -34,7 +34,7 @@ export default function TransactionDetailModal({ tx, onClose }: Props) {
                     ${animating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
         onClick={onClose}
       >
-        <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-black/55 backdrop-blur-md" />
 
         <div
           className={`relative glass-card rounded-2xl w-full max-w-md p-6
