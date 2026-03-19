@@ -22,6 +22,8 @@ export default function SettingsPage() {
   const { user, updateUser } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<Tab>('profile');
+  const [prevTab, setPrevTab] = useState<Tab>('profile');
+  const TAB_ORDER: Tab[] = ['profile', 'security', 'notifications', 'integrations'];
 
   // Profile
   const [name, setName] = useState('');
@@ -87,6 +89,13 @@ export default function SettingsPage() {
     }
     return () => clearInterval(interval);
   }, [mounted, tgStatus?.islinked, tgLinkData]);
+
+  const handleTabChange = (newTab: Tab) => {
+    setPrevTab(tab);
+    setTab(newTab);
+  };
+
+  const isForward = TAB_ORDER.indexOf(tab) >= TAB_ORDER.indexOf(prevTab);
 
   const handleSaveProfile = async () => {
     setProfileSaving(true);
@@ -198,219 +207,224 @@ export default function SettingsPage() {
           </button>
         ))}
       </div>
+      <div
+        key={tab}   // ← key вызывает ремонтирование при смене таба
+        className={isForward ? 'animate-tab-in' : 'animate-tab-back'}
+      >
+        {/* Profile Tab */}
+        {tab === 'profile' && (
+          <div className="glass-card rounded-2xl p-6 space-y-6">
+            {/* Avatar */}
+            <div className="flex items-center gap-5">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
+                {/* suppressHydrationWarning подавляет предупреждение для этого элемента */}
+                <span
+                  className="text-2xl font-bold text-black"
+                  suppressHydrationWarning
+                >
+                  {initials}
+                </span>
+              </div>
+              <div>
+                <p
+                  className="font-semibold text-foreground"
+                  suppressHydrationWarning
+                >
+                  {mounted ? (user?.full_name ?? user?.username) : ''}
+                </p>
+                <p
+                  className="text-sm text-default-400"
+                  suppressHydrationWarning
+                >
+                  {mounted ? user?.email : ''}
+                </p>
+              </div>
+            </div>
 
-      {/* Profile Tab */}
-      {tab === 'profile' && (
-        <div className="glass-card rounded-2xl p-6 space-y-6">
-          {/* Avatar */}
-          <div className="flex items-center gap-5">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#00FFA3] to-[#00C853] flex items-center justify-center">
-              {/* suppressHydrationWarning подавляет предупреждение для этого элемента */}
-              <span
-                className="text-2xl font-bold text-black"
-                suppressHydrationWarning
-              >
-                {initials}
-              </span>
+            <div className="space-y-4 pt-2 border-t border-divider">
+              <Field label="Имя пользователя">
+                <input value={name} onChange={(e) => setName(e.target.value)} className="input-field" />
+              </Field>
+              <Field label="Полное имя">
+                <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Иван Иванов" className="input-field" />
+              </Field>
+              <Field label="Email">
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-field" />
+              </Field>
             </div>
-            <div>
-              <p
-                className="font-semibold text-foreground"
-                suppressHydrationWarning
-              >
-                {mounted ? (user?.full_name ?? user?.username) : ''}
-              </p>
-              <p
-                className="text-sm text-default-400"
-                suppressHydrationWarning
-              >
-                {mounted ? user?.email : ''}
-              </p>
-            </div>
+
+            <button
+              onClick={handleSaveProfile}
+              disabled={profileSaving}
+              className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
+            >
+              {profileSaving ? <RefreshCw className="w-4 h-4 animate-spin" />
+                : profileSaved ? <><Check className="w-4 h-4" /> Сохранено!</>
+                  : 'Сохранить'}
+            </button>
           </div>
+        )}
 
-          <div className="space-y-4 pt-2 border-t border-divider">
-            <Field label="Имя пользователя">
-              <input value={name} onChange={(e) => setName(e.target.value)} className="input-field" />
-            </Field>
-            <Field label="Полное имя">
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Иван Иванов" className="input-field" />
-            </Field>
-            <Field label="Email">
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-field" />
-            </Field>
-          </div>
+        {/* Security Tab */}
+        {tab === 'security' && (
+          <div className="glass-card rounded-2xl p-6 space-y-5">
+            <h2 className="text-base font-semibold">Смена пароля</h2>
 
-          <button
-            onClick={handleSaveProfile}
-            disabled={profileSaving}
-            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
-          >
-            {profileSaving ? <RefreshCw className="w-4 h-4 animate-spin" />
-              : profileSaved ? <><Check className="w-4 h-4" /> Сохранено!</>
-                : 'Сохранить'}
-          </button>
-        </div>
-      )}
+            {pwdError && (
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/30 text-sm text-[#FF3366]">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {pwdError}
+              </div>
+            )}
 
-      {/* Security Tab */}
-      {tab === 'security' && (
-        <div className="glass-card rounded-2xl p-6 space-y-5">
-          <h2 className="text-base font-semibold">Смена пароля</h2>
-
-          {pwdError && (
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-[#FF3366]/10 border border-[#FF3366]/30 text-sm text-[#FF3366]">
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {pwdError}
+            <div className="space-y-4">
+              <Field label="Текущий пароль">
+                <div className="relative">
+                  <input type={showPwd ? 'text' : 'password'} value={currentPwd}
+                    onChange={(e) => setCurrentPwd(e.target.value)} className="input-field pr-10" />
+                  <button type="button" onClick={() => setShowPwd(!showPwd)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-default-400">
+                    {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </Field>
+              <Field label="Новый пароль">
+                <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="input-field" />
+              </Field>
+              <Field label="Подтвердите пароль">
+                <input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="input-field" />
+              </Field>
             </div>
-          )}
 
-          <div className="space-y-4">
-            <Field label="Текущий пароль">
-              <div className="relative">
-                <input type={showPwd ? 'text' : 'password'} value={currentPwd}
-                  onChange={(e) => setCurrentPwd(e.target.value)} className="input-field pr-10" />
-                <button type="button" onClick={() => setShowPwd(!showPwd)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-default-400">
-                  {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            <button
+              onClick={handleChangePassword}
+              disabled={pwdSaving || !currentPwd || !newPwd || !confirmPwd}
+              className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
+            >
+              {pwdSaving ? <RefreshCw className="w-4 h-4 animate-spin" />
+                : pwdSaved ? <><Check className="w-4 h-4" /> Изменён!</>
+                  : 'Изменить пароль'}
+            </button>
+          </div>
+        )}
+
+        {/* Notifications Tab */}
+        {tab === 'notifications' && (
+          <div className="glass-card rounded-2xl p-6 space-y-4">
+            <h2 className="text-base font-semibold mb-2">Уведомления</h2>
+            {[
+              { label: 'Email-уведомления', sub: 'Ежедневные сводки на почту', value: notifEmail, set: setNotifEmail },
+              { label: 'Push-уведомления', sub: 'Уведомления в браузере', value: notifPush, set: setNotifPush },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center justify-between py-4 border-b border-divider last:border-0">
+                <div>
+                  <p className="text-sm font-medium">{item.label}</p>
+                  <p className="text-xs text-default-400 mt-0.5">{item.sub}</p>
+                </div>
+                <Toggle checked={item.value} onChange={() => item.set(!item.value)} />
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Integrations Tab */}
+        {tab === 'integrations' && (
+          <div className="glass-card rounded-2xl p-6 space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Send className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Telegram</h2>
+                <p className="text-sm text-default-400">
+                  Привязка бота для загрузки банковских выписок
+                </p>
+              </div>
+            </div>
+
+            {tgStatus === null ? (
+              // Загрузка статуса
+              <div className="flex items-center gap-2 text-sm text-default-400">
+                <RefreshCw className="w-4 h-4 animate-spin" /> Загрузка...
+              </div>
+            ) : tgStatus.is_linked ? (
+              // Привязан
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-success/10 border border-success/30">
+                  <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-success">Telegram привязан</p>
+                    {tgStatus.telegram_username && (
+                      <p className="text-xs text-default-400 mt-0.5">
+                        @{tgStatus.telegram_username}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={handleUnlink}
+                  disabled={tgLoading}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-[#FF3366] hover:border-[#FF3366]/50 transition-all disabled:opacity-50"
+                >
+                  <Unlink className="w-4 h-4" />
+                  Отвязать Telegram
                 </button>
               </div>
-            </Field>
-            <Field label="Новый пароль">
-              <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="input-field" />
-            </Field>
-            <Field label="Подтвердите пароль">
-              <input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="input-field" />
-            </Field>
-          </div>
-
-          <button
-            onClick={handleChangePassword}
-            disabled={pwdSaving || !currentPwd || !newPwd || !confirmPwd}
-            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
-          >
-            {pwdSaving ? <RefreshCw className="w-4 h-4 animate-spin" />
-              : pwdSaved ? <><Check className="w-4 h-4" /> Изменён!</>
-                : 'Изменить пароль'}
-          </button>
-        </div>
-      )}
-
-      {/* Notifications Tab */}
-      {tab === 'notifications' && (
-        <div className="glass-card rounded-2xl p-6 space-y-4">
-          <h2 className="text-base font-semibold mb-2">Уведомления</h2>
-          {[
-            { label: 'Email-уведомления', sub: 'Ежедневные сводки на почту', value: notifEmail, set: setNotifEmail },
-            { label: 'Push-уведомления', sub: 'Уведомления в браузере', value: notifPush, set: setNotifPush },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center justify-between py-4 border-b border-divider last:border-0">
-              <div>
-                <p className="text-sm font-medium">{item.label}</p>
-                <p className="text-xs text-default-400 mt-0.5">{item.sub}</p>
+            ) : !tgLinkData ? (
+              // Не привязан — показываем кнопку генерации
+              <div className="space-y-3">
+                <p className="text-sm text-default-400 leading-relaxed">
+                  Привяжите Telegram бота чтобы загружать банковские выписки прямо
+                  из мессенджера. Транзакции будут импортироваться автоматически.
+                </p>
+                <button
+                  onClick={handleGenerateLink}
+                  disabled={tgLoading}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/40 text-sm text-primary hover:bg-[#00E5FF]/20 transition-all disabled:opacity-50"
+                >
+                  {tgLoading
+                    ? <span className="w-4 h-4 border-2 border-[#00E5FF]/30 border-t-[#00E5FF] rounded-full animate-spin" />
+                    : <Send className="w-4 h-4" />
+                  }
+                  Привязать Telegram
+                </button>
               </div>
-              <Toggle checked={item.value} onChange={() => item.set(!item.value)} />
-            </div>
-          ))}
-        </div>
-      )}
-      {/* Integrations Tab */}
-      {tab === 'integrations' && (
-        <div className="glass-card rounded-2xl p-6 space-y-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Send className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Telegram</h2>
-              <p className="text-sm text-default-400">
-                Привязка бота для загрузки банковских выписок
-              </p>
-            </div>
-          </div>
-
-          {tgStatus === null ? (
-            // Загрузка статуса
-            <div className="flex items-center gap-2 text-sm text-default-400">
-              <RefreshCw className="w-4 h-4 animate-spin" /> Загрузка...
-            </div>
-          ) : tgStatus.is_linked ? (
-            // Привязан
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-success/10 border border-success/30">
-                <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-success">Telegram привязан</p>
-                  {tgStatus.telegram_username && (
-                    <p className="text-xs text-default-400 mt-0.5">
-                      @{tgStatus.telegram_username}
-                    </p>
-                  )}
-                </div>
+            ) : (
+              // Deep link сгенерирован
+              <div className="space-y-3">
+                <p className="text-sm text-default-400">
+                  Ссылка действительна{' '}
+                  <span className="text-foreground font-medium">10 минут</span>.
+                  Нажмите кнопку чтобы открыть бота.
+                </p>
+                <a
+                  href={tgLinkData.deep_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold hover:opacity-90 transition-opacity"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Открыть Telegram бота
+                </a>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-foreground hover:bg-content3 transition-all"
+                >
+                  {copied
+                    ? <><Check className="w-4 h-4 text-success" /><span className="text-success">Скопировано</span></>
+                    : <><Copy className="w-4 h-4" />Скопировать ссылку</>
+                  }
+                </button>
+                <button
+                  onClick={() => setTgLinkData(null)}
+                  className="text-xs text-default-400 hover:text-default-600 transition-colors w-full text-center pt-1"
+                >
+                  Сгенерировать новую ссылку
+                </button>
               </div>
-              <button
-                onClick={handleUnlink}
-                disabled={tgLoading}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-[#FF3366] hover:border-[#FF3366]/50 transition-all disabled:opacity-50"
-              >
-                <Unlink className="w-4 h-4" />
-                Отвязать Telegram
-              </button>
-            </div>
-          ) : !tgLinkData ? (
-            // Не привязан — показываем кнопку генерации
-            <div className="space-y-3">
-              <p className="text-sm text-default-400 leading-relaxed">
-                Привяжите Telegram бота чтобы загружать банковские выписки прямо
-                из мессенджера. Транзакции будут импортироваться автоматически.
-              </p>
-              <button
-                onClick={handleGenerateLink}
-                disabled={tgLoading}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/40 text-sm text-primary hover:bg-[#00E5FF]/20 transition-all disabled:opacity-50"
-              >
-                {tgLoading
-                  ? <span className="w-4 h-4 border-2 border-[#00E5FF]/30 border-t-[#00E5FF] rounded-full animate-spin" />
-                  : <Send className="w-4 h-4" />
-                }
-                Привязать Telegram
-              </button>
-            </div>
-          ) : (
-            // Deep link сгенерирован
-            <div className="space-y-3">
-              <p className="text-sm text-default-400">
-                Ссылка действительна{' '}
-                <span className="text-foreground font-medium">10 минут</span>.
-                Нажмите кнопку чтобы открыть бота.
-              </p>
-              <a
-                href={tgLinkData.deep_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold hover:opacity-90 transition-opacity"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Открыть Telegram бота
-              </a>
-              <button
-                onClick={handleCopy}
-                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-foreground hover:bg-content3 transition-all"
-              >
-                {copied
-                  ? <><Check className="w-4 h-4 text-success" /><span className="text-success">Скопировано</span></>
-                  : <><Copy className="w-4 h-4" />Скопировать ссылку</>
-                }
-              </button>
-              <button
-                onClick={() => setTgLinkData(null)}
-                className="text-xs text-default-400 hover:text-default-600 transition-colors w-full text-center pt-1"
-              >
-                Сгенерировать новую ссылку
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+
+          </div>
+        )}
+      </div>
     </div>
   );
 }

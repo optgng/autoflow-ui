@@ -163,7 +163,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 stagger-container">
         {isLoading ? (
           Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)
         ) : (
@@ -206,7 +206,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 stagger-container">
         <div className="glass-card rounded-2xl p-6 lg:col-span-3">
           <h2 className="text-base font-semibold mb-5 text-foreground">Доходы и расходы</h2>
           {isLoading ? (
