@@ -346,13 +346,13 @@ export default function AccountsPage() {
           <ModalPortal>
             <div
               className={`fixed inset-0 z-[100] flex items-center justify-center px-4
-                  ${createAnimating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
+                modal-overlay
+                ${createAnimating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
               onClick={() => { setShowCreate(false); setError(''); }}
             >
-              <div className="absolute inset-0 bg-black/55 backdrop-blur-md" />
               <div
-                className={`relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4
-                    ${createAnimating ? 'animate-modal-content' : 'animate-modal-out'}`}
+                className={`relative glass-modal rounded-2xl p-6 w-full max-w-sm space-y-4
+                  ${createAnimating ? 'animate-modal-content' : 'animate-modal-out'}`}
                 onClick={e => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between">
@@ -398,13 +398,13 @@ export default function AccountsPage() {
           <ModalPortal>
             <div
               className={`fixed inset-0 z-[100] flex items-center justify-center px-4
-                  ${deleteAnimating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
-              onClick={() => { setDeleteId(null); setError(''); }}
+                modal-overlay
+                ${deleteAnimating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
+              onClick={() => { setShowCreate(false); setError(''); }}
             >
-              <div className="absolute inset-0 bg-black/55 backdrop-blur-md" />
               <div
-                className={`relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4
-                    ${deleteAnimating ? 'animate-modal-content' : 'animate-modal-out'}`}
+                className={`relative glass-modal rounded-2xl p-6 w-full max-w-sm space-y-4
+                  ${deleteAnimating ? 'animate-modal-content' : 'animate-modal-out'}`}
                 onClick={e => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between">

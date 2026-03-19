@@ -40,7 +40,7 @@ export default function TransactionsPage() {
   }, []);
 
   useEffect(() => {
-    apiClient.get('/categories').then(r => setCategories(r.data ?? []));
+    apiClient.get('/categories').then((r: { data: any; }) => setCategories(r.data ?? []));
   }, []);
 
   const load = useCallback(async () => {

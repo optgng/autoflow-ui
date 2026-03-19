@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, SetStateAction } from 'react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/useAuth';
 import {
@@ -69,17 +69,17 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!mounted) return;
     apiClient.get('/telegram/status')
-      .then((r) => setTgStatus(r.data))
+      .then((r: { data: SetStateAction<{ is_linked: boolean; telegram_username?: string; } | null>; }) => setTgStatus(r.data))
       .catch(() => setTgStatus({ is_linked: false }));
   }, [mounted]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (mounted && tgStatus && !tgStatus.islinked && tgLinkData) {
+    if (mounted && tgStatus && !tgStatus.is_linked && tgLinkData) {
       interval = setInterval(() => {
-        apiClient.get('/telegram/status').then(r => {
-          if (r.data.islinked) {
-            setTgStatus({ islinked: true, telegramusername: r.data.telegramusername });
+        apiClient.get('/telegram/status').then((r: { data: { is_linked: any; telegram_username: any; }; }) => {
+          if (r.data.is_linked) {
+            setTgStatus({ is_linked: true, telegram_username: r.data.telegram_username });
             setTgLinkData(null);
             clearInterval(interval);
           }
@@ -87,7 +87,7 @@ export default function SettingsPage() {
       }, 3000);
     }
     return () => clearInterval(interval);
-  }, [mounted, tgStatus?.islinked, tgLinkData]);
+  }, [mounted, tgStatus?.is_linked, tgLinkData]);
 
   const handleTabChange = (newTab: Tab) => {
     setPrevTab(tab);

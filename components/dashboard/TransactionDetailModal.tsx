@@ -31,14 +31,13 @@ export default function TransactionDetailModal({ tx, onClose }: Props) {
     <ModalPortal>
       <div
         className={`fixed inset-0 z-[100] flex items-center justify-center p-4
-                    ${animating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
+                  modal-overlay
+                  ${animating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
         onClick={onClose}
       >
-        <div className="absolute inset-0 bg-black/55 backdrop-blur-md" />
-
         <div
-          className={`relative glass-card rounded-2xl w-full max-w-md p-6
-                      ${animating ? 'animate-modal-content' : 'animate-modal-out'}`}
+          className={`relative glass-modal rounded-2xl w-full max-w-md p-6
+                    ${animating ? 'animate-modal-content' : 'animate-modal-out'}`}
           onClick={e => e.stopPropagation()}
         >
           <button

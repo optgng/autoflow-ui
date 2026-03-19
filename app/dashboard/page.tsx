@@ -24,11 +24,14 @@ function SkeletonCard() {
   return <div className="glass-card rounded-2xl p-5 shimmer h-32" />;
 }
 
+function SkeletonChart({ className = '' }: { className?: string }) {
+  return <div className={`glass-card rounded-2xl shimmer ${className}`} />;
+}
+
 export default function DashboardPage() {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== 'light';
 
-  // Тема-зависимые цвета для Recharts
   const C = {
     income: isDark ? '#00FFA3' : '#00874A',
     expense: isDark ? '#FF3366' : '#DC2626',
@@ -55,7 +58,6 @@ export default function DashboardPage() {
   const periodRef = useRef<HTMLDivElement>(null);
   const { mounted: dropMounted, animating: dropAnimating } = useAnimatedMount(periodOpen, 160);
 
-  // Закрыть dropdown при клике снаружи
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (periodRef.current && !periodRef.current.contains(e.target as Node))
@@ -69,10 +71,12 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [categoryData, setCategoryData] = useState<CategoryStat[]>([]);
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // ← Всегда передаём в TransactionDetailModal, null = закрыто
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+
+  // isInitialLoad=true — показываем skeleton только при первом открытии страницы
+  // isLoading=true    — тихое обновление данных (старые данные остаются на экране)
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -96,7 +100,6 @@ export default function DashboardPage() {
           if (tx.transaction_type === 'income') totalIncome += Number(tx.amount);
           if (tx.transaction_type === 'expense') totalExpense += Number(tx.amount);
         }
-
         setStats({
           totalIncome,
           totalExpense,
@@ -105,7 +108,6 @@ export default function DashboardPage() {
 
         setRecentTx(allTx.slice(0, 5));
 
-        // Категории расходов
         const catMap: Record<string, number> = {};
         for (const tx of allTx) {
           if (tx.transaction_type !== 'expense') continue;
@@ -118,7 +120,6 @@ export default function DashboardPage() {
             .map(([name, value], i) => ({ name, value, color: CHART_COLORS[i % CHART_COLORS.length] }))
         );
 
-        // График по дням
         const byDate: Record<string, { income: number; expense: number }> = {};
         for (const tx of allTx) {
           const d = formatDateUI(tx.transaction_date);
@@ -127,14 +128,13 @@ export default function DashboardPage() {
           if (tx.transaction_type === 'expense') byDate[d].expense += Number(tx.amount);
         }
         setChartData(
-          Object.entries(byDate)
-            .map(([date, v]) => ({ date, ...v }))
-            .slice(-14)
+          Object.entries(byDate).map(([date, v]) => ({ date, ...v })).slice(-14)
         );
       } catch (err) {
         console.error('Dashboard load error:', err);
       } finally {
         setIsLoading(false);
+        setIsInitialLoad(false); // после первого запроса skeleton больше не показываем
       }
     };
     load();
@@ -152,7 +152,12 @@ export default function DashboardPage() {
           <nav className="text-xs text-default-400 mb-1"><span>Dashboard</span></nav>
           <h1 className="text-3xl font-bold text-foreground">Обзор финансов</h1>
           <p className="text-default-500 text-sm mt-1">
-            Актуальные данные за последние {period} дней
+            Актуальные данные за последние{' '}
+            <span className="text-foreground font-medium">{period} дней</span>
+            {isLoading && !isInitialLoad && (
+              <span className="ml-2 inline-block w-3 h-3 rounded-full border-2
+                               border-primary border-t-transparent animate-spin align-middle" />
+            )}
           </p>
         </div>
 
@@ -160,11 +165,13 @@ export default function DashboardPage() {
         <div ref={periodRef} className="relative">
           <button
             onClick={() => setPeriodOpen(v => !v)}
+            disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2
-                       border border-divider text-sm font-medium hover:bg-content3 transition-colors"
+                       border border-divider text-sm font-medium hover:bg-content3
+                       transition-colors disabled:opacity-60"
           >
             За {period} дней
-            <ChevronDown className={`w-4 h-4 text-default-400 transition-transform duration-200
+            <ChevronDown className={`w-4 h-4 text-default-400 transition-transform duration-300
                                       ${periodOpen ? 'rotate-180' : ''}`} />
           </button>
           {dropMounted && (
@@ -185,13 +192,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Metric Cards */}
-      {isLoading ? (
+      {/* Metric Cards — skeleton ТОЛЬКО при первой загрузке */}
+      {isInitialLoad ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
           {Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 stagger-container">
+        // key={period} — stagger перезапускается при смене периода
+        <div key={`metrics-${period}`}
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 stagger-container">
           <MetricCard
             label="Баланс" value={stats.totalBalance.toLocaleString('ru-RU')} sub="₽ на счетах"
             icon={<Wallet className="w-6 h-6" />} iconBg="bg-primary/10 text-primary"
@@ -208,9 +217,7 @@ export default function DashboardPage() {
             <div className="flex items-start justify-between mb-3">
               <div>
                 <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Накоплено</p>
-                <p className="text-2xl font-bold mt-1 text-foreground">
-                  {saved.toLocaleString('ru-RU')}
-                </p>
+                <p className="text-2xl font-bold mt-1 text-foreground">{saved.toLocaleString('ru-RU')}</p>
                 <p className="text-xs text-default-400 mt-0.5">{savedPct}% от доходов</p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-warning/10 text-warning
@@ -219,23 +226,24 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="h-2 bg-content3 rounded-full overflow-hidden">
-              <div className="h-full bg-warning rounded-full transition-all"
+              <div className="h-full bg-warning rounded-full transition-all duration-700"
                 style={{ width: `${Math.min(savedPct, 100)}%` }} />
             </div>
           </div>
         </div>
       )}
 
-      {/* Charts — stagger только здесь, НЕ на skeleton */}
-      {isLoading ? (
+      {/* Charts */}
+      {isInitialLoad ? (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-          <div className="glass-card rounded-2xl lg:col-span-3 h-80 shimmer" />
-          <div className="glass-card rounded-2xl lg:col-span-2 h-80 shimmer" />
+          <SkeletonChart className="lg:col-span-3 h-80" />
+          <SkeletonChart className="lg:col-span-2 h-80" />
         </div>
       ) : (
-        // key меняется при смене периода → stagger перезапускается
-        <div key={period} className="grid grid-cols-1 lg:grid-cols-5 gap-5 stagger-container">
-          <div className="glass-card rounded-2xl p-6 lg:col-span-3">
+        <div key={`charts-${period}`}
+          className="grid grid-cols-1 lg:grid-cols-5 gap-5 stagger-container">
+          <div className={`glass-card rounded-2xl p-6 lg:col-span-3 transition-opacity duration-300
+                           ${isLoading ? 'opacity-60' : 'opacity-100'}`}>
             <h2 className="text-base font-semibold mb-5 text-foreground">Доходы и расходы</h2>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -255,7 +263,8 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          <div className="glass-card rounded-2xl p-6 lg:col-span-2">
+          <div className={`glass-card rounded-2xl p-6 lg:col-span-2 transition-opacity duration-300
+                           ${isLoading ? 'opacity-60' : 'opacity-100'}`}>
             <h2 className="text-base font-semibold mb-5 text-foreground">Категории расходов</h2>
             {categoryData.length === 0 ? (
               <p className="text-center text-default-400 py-12 text-sm">Нет расходов за период</p>
@@ -305,14 +314,15 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {isLoading ? (
+        {isInitialLoad ? (
           <div className="space-y-3">
             {Array(5).fill(0).map((_, i) => <div key={i} className="h-12 shimmer rounded-xl" />)}
           </div>
         ) : recentTx.length === 0 ? (
           <p className="text-center text-default-400 py-8 text-sm">Транзакций пока нет</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className={`overflow-x-auto transition-opacity duration-300
+                           ${isLoading ? 'opacity-60' : 'opacity-100'}`}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-divider">
@@ -331,8 +341,8 @@ export default function DashboardPage() {
                     onClick={() => setSelectedTx(tx)}
                     className="border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer"
                     style={{
-                      animation: 'stagger-in 0.35s cubic-bezier(0.16,1,0.3,1) both',
-                      animationDelay: `${Math.min(idx * 0.06, 0.4)}s`,
+                      animation: 'stagger-in 0.65s cubic-bezier(0.16,1,0.3,1) both',
+                      animationDelay: `${0.05 + idx * 0.07}s`,
                     }}
                   >
                     <td className="py-3.5 pr-4 text-default-400 whitespace-nowrap text-xs">
@@ -359,7 +369,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ← Всегда рендерим, null = закрыто, компонент сам управляет exit-анимацией */}
       <TransactionDetailModal tx={selectedTx} onClose={() => setSelectedTx(null)} />
     </div>
   );

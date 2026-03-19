@@ -10,10 +10,8 @@ import { apiClient } from '@/lib/api';
 import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
 
 interface CategoryStat {
-  category_id: number | null;
   category_name: string;
   total: number;
-  count: number;
   color?: string;
 }
 interface MonthlyPoint { month: string; income: number; expense: number; balance: number; }
@@ -53,16 +51,25 @@ export default function AnalyticsPage() {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== 'light';
 
-  // Тема-зависимые цвета для Recharts
   const C = {
     income: isDark ? '#00FFA3' : '#00874A',
     expense: isDark ? '#FF3366' : '#DC2626',
     primary: isDark ? '#3D7EFF' : '#1A6EF5',
     grid: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(100,80,50,0.10)',
     tick: isDark ? '#9CA3AF' : '#7A6A58',
-    tooltip: isDark
-      ? { bg: '#111113', border: 'rgba(255,255,255,0.1)' }
-      : { bg: '#FAF7F2', border: 'rgba(180,155,120,0.3)' },
+    tooltip: {
+      bg: isDark ? '#111113' : '#FAF7F2',
+      border: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(180,155,120,0.3)',
+      color: isDark ? '#fff' : '#1A1510',
+    },
+  };
+
+  const tooltipStyle = {
+    background: C.tooltip.bg,
+    border: `1px solid ${C.tooltip.border}`,
+    borderRadius: 12,
+    fontSize: 12,
+    color: C.tooltip.color,
   };
 
   const [periodIdx, setPeriodIdx] = useState(1);
@@ -70,7 +77,6 @@ export default function AnalyticsPage() {
   const periodRef = useRef<HTMLDivElement>(null);
   const { mounted: dropMounted, animating: dropAnimating } = useAnimatedMount(periodOpen, 160);
 
-  // Закрыть dropdown кликом снаружи
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (periodRef.current && !periodRef.current.contains(e.target as Node))
@@ -85,8 +91,11 @@ export default function AnalyticsPage() {
   const [monthlyData, setMonthlyData] = useState<MonthlyPoint[]>([]);
   const [topMerchants, setTopMerchants] = useState<TopMerchant[]>([]);
   const [totals, setTotals] = useState({ income: 0, expense: 0, balance: 0 });
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // skeleton только при первой загрузке
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -117,13 +126,11 @@ export default function AnalyticsPage() {
         if (tx.transaction_type === 'income') incCatMap[name] = (incCatMap[name] ?? 0) + Number(tx.amount);
       }
       setExpenseByCategory(
-        Object.entries(expCatMap)
-          .sort(([, a], [, b]) => b - a)
+        Object.entries(expCatMap).sort(([, a], [, b]) => b - a)
           .map(([name, total], i) => ({ category_name: name, total, color: CHART_COLORS[i % CHART_COLORS.length] }))
       );
       setIncomeByCategory(
-        Object.entries(incCatMap)
-          .sort(([, a], [, b]) => b - a)
+        Object.entries(incCatMap).sort(([, a], [, b]) => b - a)
           .map(([name, total], i) => ({ category_name: name, total, color: CHART_COLORS[i % CHART_COLORS.length] }))
       );
 
@@ -135,8 +142,7 @@ export default function AnalyticsPage() {
         if (tx.transaction_type === 'expense') byMonth[month].expense += Number(tx.amount);
       }
       setMonthlyData(
-        Object.entries(byMonth)
-          .sort(([a], [b]) => a.localeCompare(b))
+        Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b))
           .map(([month, v]) => ({ month, ...v, balance: v.income - v.expense }))
       );
 
@@ -150,13 +156,13 @@ export default function AnalyticsPage() {
       setTopMerchants(
         Object.entries(merchantMap)
           .map(([merchant, v]) => ({ merchant, ...v }))
-          .sort((a, b) => b.total - a.total)
-          .slice(0, 5)
+          .sort((a, b) => b.total - a.total).slice(0, 5)
       );
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Ошибка загрузки');
     } finally {
       setIsLoading(false);
+      setIsInitialLoad(false);
     }
   }, [periodIdx]);
 
@@ -164,13 +170,8 @@ export default function AnalyticsPage() {
 
   const maxMerchant = Math.max(...topMerchants.map(m => m.total), 1);
 
-  const tooltipStyle = {
-    background: C.tooltip.bg,
-    border: `1px solid ${C.tooltip.border}`,
-    borderRadius: 12,
-    fontSize: 12,
-    color: isDark ? '#fff' : '#1A1510',
-  };
+  // Класс для плавного затухания при фоновом обновлении (не skeleton)
+  const fadeOnUpdate = `transition-opacity duration-300 ${isLoading && !isInitialLoad ? 'opacity-60' : 'opacity-100'}`;
 
   return (
     <div className="space-y-8">
@@ -190,6 +191,7 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Кнопка refresh — показываем спиннер при фоновом обновлении */}
           <button
             onClick={load}
             disabled={isLoading}
@@ -199,24 +201,23 @@ export default function AnalyticsPage() {
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
 
-          {/* Period dropdown */}
           <div ref={periodRef} className="relative">
             <button
               onClick={() => setPeriodOpen(v => !v)}
+              disabled={isLoading}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2
-                         border border-divider text-sm font-medium hover:bg-content3 transition-colors"
+                         border border-divider text-sm font-medium hover:bg-content3
+                         transition-colors disabled:opacity-60"
             >
               {PERIODS[periodIdx].label}
-              <ChevronDown className={`w-4 h-4 text-default-400 transition-transform duration-200
+              <ChevronDown className={`w-4 h-4 text-default-400 transition-transform duration-300
                                         ${periodOpen ? 'rotate-180' : ''}`} />
             </button>
-
             {dropMounted && (
               <div className={`absolute right-0 mt-2 w-44 glass-dropdown rounded-xl py-1 z-50
                                ${dropAnimating ? 'animate-dropdown' : 'animate-dropdown-out'}`}>
                 {PERIODS.map((p, i) => (
-                  <button
-                    key={i}
+                  <button key={i}
                     onClick={() => { setPeriodIdx(i); setPeriodOpen(false); }}
                     className={`w-full text-left px-4 py-2.5 text-sm transition-colors
                                 hover:bg-white/5
@@ -238,18 +239,19 @@ export default function AnalyticsPage() {
       )}
 
       {/* Totals row */}
-      {isLoading ? (
+      {isInitialLoad ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-28" />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 stagger-container">
+        <div key={`totals-${periodIdx}`}
+          className={`grid grid-cols-1 sm:grid-cols-3 gap-5 stagger-container ${fadeOnUpdate}`}>
           {[
             { label: 'Доходы', value: totals.income, color: C.income, Icon: TrendingUp },
             { label: 'Расходы', value: totals.expense, color: C.expense, Icon: TrendingDown },
             { label: 'Баланс', value: totals.balance, color: C.primary, Icon: BarChart2 },
           ].map(({ label, value, color, Icon }) => (
-            <div key={label} className="glass-card rounded-2xl p-5 hover-lift card-hover-glow">
+            <div key={label} className="glass-card rounded-2xl p-5 hover-lift">
               <div className="flex items-start justify-between mb-3">
                 <p className="text-xs text-default-500 font-medium uppercase tracking-wide">{label}</p>
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -266,9 +268,9 @@ export default function AnalyticsPage() {
       )}
 
       {/* Monthly bar chart */}
-      <div className="glass-card rounded-2xl p-6">
+      <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
         <h2 className="text-base font-semibold mb-5 text-foreground">Помесячная динамика</h2>
-        {isLoading ? <Skeleton className="h-64" /> : monthlyData.length === 0 ? (
+        {isInitialLoad ? <Skeleton className="h-64" /> : monthlyData.length === 0 ? (
           <p className="text-center text-default-400 py-16 text-sm">Нет данных за период</p>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
@@ -291,10 +293,9 @@ export default function AnalyticsPage() {
 
       {/* Categories row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Расходы по категориям */}
-        <div className="glass-card rounded-2xl p-6">
+        <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
           <h2 className="text-base font-semibold mb-5 text-foreground">Расходы по категориям</h2>
-          {isLoading ? <Skeleton className="h-52" /> : expenseByCategory.length === 0 ? (
+          {isInitialLoad ? <Skeleton className="h-52" /> : expenseByCategory.length === 0 ? (
             <p className="text-center text-default-400 py-12 text-sm">Нет данных</p>
           ) : (
             <div className="flex flex-col sm:flex-row items-center gap-6">
@@ -328,7 +329,7 @@ export default function AnalyticsPage() {
                         </span>
                       </div>
                       <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all"
+                        <div className="h-full rounded-full transition-all duration-700"
                           style={{ width: `${pct}%`, background: color }} />
                       </div>
                     </div>
@@ -339,10 +340,9 @@ export default function AnalyticsPage() {
           )}
         </div>
 
-        {/* Доходы по категориям */}
-        <div className="glass-card rounded-2xl p-6">
+        <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
           <h2 className="text-base font-semibold mb-5 text-foreground">Доходы по категориям</h2>
-          {isLoading ? <Skeleton className="h-52" /> : incomeByCategory.length === 0 ? (
+          {isInitialLoad ? <Skeleton className="h-52" /> : incomeByCategory.length === 0 ? (
             <p className="text-center text-default-400 py-12 text-sm">Нет данных</p>
           ) : (
             <div className="space-y-3">
@@ -354,8 +354,7 @@ export default function AnalyticsPage() {
                   <div key={i}>
                     <div className="flex items-center justify-between text-xs mb-1">
                       <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full"
-                          style={{ background: color }} />
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
                         <span className="text-default-500">{c.category_name || 'Прочее'}</span>
                       </div>
                       <span className="font-medium text-foreground">
@@ -363,7 +362,7 @@ export default function AnalyticsPage() {
                       </span>
                     </div>
                     <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full"
+                      <div className="h-full rounded-full transition-all duration-700"
                         style={{ width: `${pct}%`, background: color }} />
                     </div>
                   </div>
@@ -375,23 +374,21 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Top merchants */}
-      <div className="glass-card rounded-2xl p-6">
+      <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
         <h2 className="text-base font-semibold mb-5 text-foreground">Топ-5 трат</h2>
-        {isLoading ? (
+        {isInitialLoad ? (
           <div className="space-y-3">
             {Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-10" />)}
           </div>
         ) : topMerchants.length === 0 ? (
           <p className="text-center text-default-400 py-10 text-sm">Нет данных о продавцах</p>
         ) : (
-          <div className="space-y-3 stagger-container">
+          <div key={`merchants-${periodIdx}`} className="space-y-3 stagger-container">
             {topMerchants.map((m, i) => {
               const pct = Math.round((m.total / maxMerchant) * 100);
               return (
                 <div key={i} className="flex items-center gap-4">
-                  <span className="w-5 text-xs text-default-400 text-right flex-shrink-0">
-                    #{i + 1}
-                  </span>
+                  <span className="w-5 text-xs text-default-400 text-right flex-shrink-0">#{i + 1}</span>
                   <div className="flex-1">
                     <div className="flex items-center justify-between text-sm mb-1">
                       <span className="font-medium text-foreground">{m.merchant}</span>
@@ -403,7 +400,7 @@ export default function AnalyticsPage() {
                       </div>
                     </div>
                     <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full"
+                      <div className="h-full rounded-full transition-all duration-700"
                         style={{
                           width: `${pct}%`,
                           background: `linear-gradient(90deg, ${C.expense}, #FF6600)`,
@@ -417,9 +414,9 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* Balance trend line */}
-      {!isLoading && monthlyData.length > 1 && (
-        <div className="glass-card rounded-2xl p-6">
+      {/* Balance trend */}
+      {!isInitialLoad && monthlyData.length > 1 && (
+        <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
           <h2 className="text-base font-semibold mb-5 text-foreground">Тренд баланса</h2>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={monthlyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -433,8 +430,7 @@ export default function AnalyticsPage() {
                 labelFormatter={formatMonth} />
               <Line type="monotone" dataKey="balance" name="Баланс"
                 stroke={C.primary} strokeWidth={2}
-                dot={{ r: 4, fill: C.primary }}
-                activeDot={{ r: 6 }} />
+                dot={{ r: 4, fill: C.primary }} activeDot={{ r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
