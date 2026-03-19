@@ -75,10 +75,6 @@ export default function TransactionsPage() {
 
       {/* Header */}
       <div>
-        <nav className="text-xs text-default-400 mb-1">
-          <span>Dashboard</span><span className="mx-1.5">/</span>
-          <span className="text-foreground">Транзакции</span>
-        </nav>
         <h1 className="text-3xl font-bold text-foreground">Транзакции</h1>
       </div>
 

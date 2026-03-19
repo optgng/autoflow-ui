@@ -8,19 +8,13 @@ import {
 import { useTheme } from 'next-themes';
 import { apiClient } from '@/lib/api';
 import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
+import { useDelayedSkeleton } from '@/lib/hooks/useDelayedSkeleton';
 
-interface CategoryStat {
-  category_name: string;
-  total: number;
-  color?: string;
-}
+interface CategoryStat { category_name: string; total: number; color?: string; }
 interface MonthlyPoint { month: string; income: number; expense: number; balance: number; }
 interface TopMerchant { merchant: string; total: number; count: number; }
 
-const CHART_COLORS = [
-  '#3D7EFF', '#FF3366', '#00FFA3', '#FFB800',
-  '#A855F7', '#FF6600', '#06B6D4', '#1ABC9C',
-];
+const CHART_COLORS = ['#3D7EFF', '#FF3366', '#00FFA3', '#FFB800', '#A855F7', '#FF6600', '#06B6D4', '#1ABC9C'];
 
 const PERIODS = [
   { label: '7 дней', days: 7 },
@@ -63,13 +57,9 @@ export default function AnalyticsPage() {
       color: isDark ? '#fff' : '#1A1510',
     },
   };
-
   const tooltipStyle = {
-    background: C.tooltip.bg,
-    border: `1px solid ${C.tooltip.border}`,
-    borderRadius: 12,
-    fontSize: 12,
-    color: C.tooltip.color,
+    background: C.tooltip.bg, border: `1px solid ${C.tooltip.border}`,
+    borderRadius: 12, fontSize: 12, color: C.tooltip.color,
   };
 
   const [periodIdx, setPeriodIdx] = useState(1);
@@ -79,8 +69,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (periodRef.current && !periodRef.current.contains(e.target as Node))
-        setPeriodOpen(false);
+      if (periodRef.current && !periodRef.current.contains(e.target as Node)) setPeriodOpen(false);
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
@@ -92,10 +81,11 @@ export default function AnalyticsPage() {
   const [topMerchants, setTopMerchants] = useState<TopMerchant[]>([]);
   const [totals, setTotals] = useState({ income: 0, expense: 0, balance: 0 });
   const [error, setError] = useState('');
-
-  // skeleton только при первой загрузке
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  const showSkeleton = useDelayedSkeleton(isLoading && isInitialLoad, 2000);
+  const fadeOnUpdate = `transition-opacity duration-500 ${isLoading && !isInitialLoad ? 'opacity-50' : 'opacity-100'}`;
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -110,7 +100,6 @@ export default function AnalyticsPage() {
       ]);
 
       const allTx = txRes.data.items ?? [];
-
       let income = 0, expense = 0;
       for (const tx of allTx) {
         if (tx.transaction_type === 'income') income += Number(tx.amount);
@@ -170,37 +159,24 @@ export default function AnalyticsPage() {
 
   const maxMerchant = Math.max(...topMerchants.map(m => m.total), 1);
 
-  // Класс для плавного затухания при фоновом обновлении (не skeleton)
-  const fadeOnUpdate = `transition-opacity duration-300 ${isLoading && !isInitialLoad ? 'opacity-60' : 'opacity-100'}`;
-
   return (
     <div className="space-y-8">
 
-      {/* Header */}
+      {/* Header — всегда виден */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <nav className="text-xs text-default-400 mb-1">
-            <span>Dashboard</span><span className="mx-1.5">/</span>
-            <span className="text-foreground">Аналитика</span>
-          </nav>
           <h1 className="text-3xl font-bold text-foreground">Аналитика</h1>
           <p className="text-default-500 text-sm mt-1">
             Статистика за период:{' '}
             <span className="text-foreground font-medium">{PERIODS[periodIdx].label}</span>
           </p>
         </div>
-
         <div className="flex items-center gap-3">
-          {/* Кнопка refresh — показываем спиннер при фоновом обновлении */}
-          <button
-            onClick={load}
-            disabled={isLoading}
+          <button onClick={load} disabled={isLoading}
             className="p-2.5 rounded-xl bg-content2 border border-divider text-default-400
-                       hover:text-foreground hover:bg-content3 transition-colors disabled:opacity-40"
-          >
+                       hover:text-foreground hover:bg-content3 transition-colors disabled:opacity-40">
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-
           <div ref={periodRef} className="relative">
             <button
               onClick={() => setPeriodOpen(v => !v)}
@@ -219,10 +195,8 @@ export default function AnalyticsPage() {
                 {PERIODS.map((p, i) => (
                   <button key={i}
                     onClick={() => { setPeriodIdx(i); setPeriodOpen(false); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors
-                                hover:bg-white/5
-                                ${periodIdx === i ? 'text-primary font-medium' : 'text-foreground'}`}
-                  >
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-white/5
+                                ${periodIdx === i ? 'text-primary font-medium' : 'text-foreground'}`}>
                     {p.label}
                   </button>
                 ))}
@@ -238,11 +212,13 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Totals row */}
+      {/* Totals */}
       {isInitialLoad ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          {Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-28" />)}
-        </div>
+        showSkeleton ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-28" />)}
+          </div>
+        ) : null
       ) : (
         <div key={`totals-${periodIdx}`}
           className={`grid grid-cols-1 sm:grid-cols-3 gap-5 stagger-container ${fadeOnUpdate}`}>
@@ -267,65 +243,112 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Monthly bar chart */}
-      <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
-        <h2 className="text-base font-semibold mb-5 text-foreground">Помесячная динамика</h2>
-        {isInitialLoad ? <Skeleton className="h-64" /> : monthlyData.length === 0 ? (
-          <p className="text-center text-default-400 py-16 text-sm">Нет данных за период</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={monthlyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-              <XAxis dataKey="month" tickFormatter={formatMonth}
-                tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false}
-                tickFormatter={v => `${(v / 1000).toFixed(0)}k`} width={36} />
-              <Tooltip contentStyle={tooltipStyle}
-                formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`}
-                labelFormatter={formatMonth} />
-              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-              <Bar dataKey="income" name="Доходы" fill={C.income} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expense" name="Расходы" fill={C.expense} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* Categories row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* Monthly chart */}
+      {isInitialLoad ? (
+        showSkeleton ? <Skeleton className="h-80" /> : null
+      ) : (
         <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
-          <h2 className="text-base font-semibold mb-5 text-foreground">Расходы по категориям</h2>
-          {isInitialLoad ? <Skeleton className="h-52" /> : expenseByCategory.length === 0 ? (
-            <p className="text-center text-default-400 py-12 text-sm">Нет данных</p>
+          <h2 className="text-base font-semibold mb-5 text-foreground">Помесячная динамика</h2>
+          {monthlyData.length === 0 ? (
+            <p className="text-center text-default-400 py-16 text-sm">Нет данных за период</p>
           ) : (
-            <div className="flex flex-col sm:flex-row items-center gap-6">
-              <ResponsiveContainer width={160} height={160}>
-                <PieChart>
-                  <Pie data={expenseByCategory} dataKey="total" nameKey="category_name"
-                    cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3}>
-                    {expenseByCategory.map((c, i) => (
-                      <Cell key={i} fill={c.color ?? CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle}
-                    formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex-1 space-y-2.5 w-full">
-                {expenseByCategory.map((c, i) => {
-                  const total = expenseByCategory.reduce((s, x) => s + x.total, 0);
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={monthlyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
+                <XAxis dataKey="month" tickFormatter={formatMonth}
+                  tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false}
+                  tickFormatter={v => `${(v / 1000).toFixed(0)}k`} width={36} />
+                <Tooltip contentStyle={tooltipStyle}
+                  formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`}
+                  labelFormatter={formatMonth} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
+                <Bar dataKey="income" name="Доходы" fill={C.income} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" name="Расходы" fill={C.expense} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      )}
+
+      {/* Categories */}
+      {isInitialLoad ? (
+        showSkeleton ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
+          </div>
+        ) : null
+      ) : (
+        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5 ${fadeOnUpdate}`}>
+          {/* Расходы */}
+          <div className="glass-card rounded-2xl p-6">
+            <h2 className="text-base font-semibold mb-5 text-foreground">Расходы по категориям</h2>
+            {expenseByCategory.length === 0 ? (
+              <p className="text-center text-default-400 py-12 text-sm">Нет данных</p>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <ResponsiveContainer width={160} height={160}>
+                  <PieChart>
+                    <Pie data={expenseByCategory} dataKey="total" nameKey="category_name"
+                      cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3}>
+                      {expenseByCategory.map((c, i) => (
+                        <Cell key={i} fill={c.color ?? CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={tooltipStyle}
+                      formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex-1 space-y-2.5 w-full">
+                  {expenseByCategory.map((c, i) => {
+                    const total = expenseByCategory.reduce((s, x) => s + x.total, 0);
+                    const pct = total > 0 ? Math.round((c.total / total) * 100) : 0;
+                    const color = c.color ?? CHART_COLORS[i % CHART_COLORS.length];
+                    return (
+                      <div key={i}>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                              style={{ background: color }} />
+                            <span className="text-default-500">{c.category_name || 'Прочее'}</span>
+                          </div>
+                          <span className="font-medium text-foreground">
+                            {c.total.toLocaleString('ru-RU')} ₽ · {pct}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${pct}%`, background: color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Доходы */}
+          <div className="glass-card rounded-2xl p-6">
+            <h2 className="text-base font-semibold mb-5 text-foreground">Доходы по категориям</h2>
+            {incomeByCategory.length === 0 ? (
+              <p className="text-center text-default-400 py-12 text-sm">Нет данных</p>
+            ) : (
+              <div className="space-y-3">
+                {incomeByCategory.map((c, i) => {
+                  const total = incomeByCategory.reduce((s, x) => s + x.total, 0);
                   const pct = total > 0 ? Math.round((c.total / total) * 100) : 0;
                   const color = c.color ?? CHART_COLORS[i % CHART_COLORS.length];
                   return (
                     <div key={i}>
                       <div className="flex items-center justify-between text-xs mb-1">
                         <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                            style={{ background: color }} />
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
                           <span className="text-default-500">{c.category_name || 'Прочее'}</span>
                         </div>
                         <span className="font-medium text-foreground">
-                          {c.total.toLocaleString('ru-RU')} ₽ · {pct}%
+                          {c.total.toLocaleString('ru-RU')} ₽
                         </span>
                       </div>
                       <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
@@ -336,34 +359,50 @@ export default function AnalyticsPage() {
                   );
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+      )}
 
-        <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
-          <h2 className="text-base font-semibold mb-5 text-foreground">Доходы по категориям</h2>
-          {isInitialLoad ? <Skeleton className="h-52" /> : incomeByCategory.length === 0 ? (
-            <p className="text-center text-default-400 py-12 text-sm">Нет данных</p>
-          ) : (
+      {/* Top merchants */}
+      {isInitialLoad ? (
+        showSkeleton ? (
+          <div className="glass-card rounded-2xl p-6">
+            <div className="h-5 shimmer rounded-lg w-32 mb-5" />
             <div className="space-y-3">
-              {incomeByCategory.map((c, i) => {
-                const total = incomeByCategory.reduce((s, x) => s + x.total, 0);
-                const pct = total > 0 ? Math.round((c.total / total) * 100) : 0;
-                const color = c.color ?? CHART_COLORS[i % CHART_COLORS.length];
+              {Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-10" />)}
+            </div>
+          </div>
+        ) : null
+      ) : (
+        <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
+          <h2 className="text-base font-semibold mb-5 text-foreground">Топ-5 трат</h2>
+          {topMerchants.length === 0 ? (
+            <p className="text-center text-default-400 py-10 text-sm">Нет данных о продавцах</p>
+          ) : (
+            <div key={`merchants-${periodIdx}`} className="space-y-3 stagger-container">
+              {topMerchants.map((m, i) => {
+                const pct = Math.round((m.total / maxMerchant) * 100);
                 return (
-                  <div key={i}>
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-                        <span className="text-default-500">{c.category_name || 'Прочее'}</span>
+                  <div key={i} className="flex items-center gap-4">
+                    <span className="w-5 text-xs text-default-400 text-right flex-shrink-0">#{i + 1}</span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="font-medium text-foreground">{m.merchant}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-default-400">{m.count} операций</span>
+                          <span className="font-semibold tabular-nums text-danger">
+                            {m.total.toLocaleString('ru-RU')} ₽
+                          </span>
+                        </div>
                       </div>
-                      <span className="font-medium text-foreground">
-                        {c.total.toLocaleString('ru-RU')} ₽
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${pct}%`, background: color }} />
+                      <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${pct}%`,
+                            background: `linear-gradient(90deg, ${C.expense}, #FF6600)`,
+                          }} />
+                      </div>
                     </div>
                   </div>
                 );
@@ -371,48 +410,7 @@ export default function AnalyticsPage() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Top merchants */}
-      <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
-        <h2 className="text-base font-semibold mb-5 text-foreground">Топ-5 трат</h2>
-        {isInitialLoad ? (
-          <div className="space-y-3">
-            {Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-10" />)}
-          </div>
-        ) : topMerchants.length === 0 ? (
-          <p className="text-center text-default-400 py-10 text-sm">Нет данных о продавцах</p>
-        ) : (
-          <div key={`merchants-${periodIdx}`} className="space-y-3 stagger-container">
-            {topMerchants.map((m, i) => {
-              const pct = Math.round((m.total / maxMerchant) * 100);
-              return (
-                <div key={i} className="flex items-center gap-4">
-                  <span className="w-5 text-xs text-default-400 text-right flex-shrink-0">#{i + 1}</span>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="font-medium text-foreground">{m.merchant}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-default-400">{m.count} операций</span>
-                        <span className="font-semibold tabular-nums text-danger">
-                          {m.total.toLocaleString('ru-RU')} ₽
-                        </span>
-                      </div>
-                    </div>
-                    <div className="h-1.5 bg-content3 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          width: `${pct}%`,
-                          background: `linear-gradient(90deg, ${C.expense}, #FF6600)`,
-                        }} />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Balance trend */}
       {!isInitialLoad && monthlyData.length > 1 && (

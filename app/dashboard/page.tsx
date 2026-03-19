@@ -12,6 +12,7 @@ import { formatDateUI } from '@/lib/types';
 import type { Transaction } from '@/lib/types';
 import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal';
 import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
+import { useDelayedSkeleton } from '@/lib/hooks/useDelayedSkeleton';
 
 interface DashboardStats { totalIncome: number; totalExpense: number; totalBalance: number; }
 interface ChartPoint { date: string; income: number; expense: number; }
@@ -20,13 +21,8 @@ interface CategoryStat { name: string; value: number; color: string; }
 const CHART_COLORS = ['#3D7EFF', '#FF3366', '#00FFA3', '#FFB800', '#A855F7', '#FF6600'];
 const PERIODS = [7, 14, 30, 90] as const;
 
-function SkeletonCard() {
-  return <div className="glass-card rounded-2xl p-5 shimmer h-32" />;
-}
-
-function SkeletonChart({ className = '' }: { className?: string }) {
-  return <div className={`glass-card rounded-2xl shimmer ${className}`} />;
-}
+function SkeletonCard() { return <div className="glass-card rounded-2xl p-5 shimmer h-32" />; }
+function SkeletonBlock({ className = '' }: { className?: string }) { return <div className={`glass-card rounded-2xl shimmer ${className}`} />; }
 
 export default function DashboardPage() {
   const { resolvedTheme } = useTheme();
@@ -44,13 +40,9 @@ export default function DashboardPage() {
       color: isDark ? '#fff' : '#1A1510',
     },
   };
-
   const tooltipStyle = {
-    background: C.tooltip.bg,
-    border: `1px solid ${C.tooltip.border}`,
-    borderRadius: 12,
-    fontSize: 12,
-    color: C.tooltip.color,
+    background: C.tooltip.bg, border: `1px solid ${C.tooltip.border}`,
+    borderRadius: 12, fontSize: 12, color: C.tooltip.color,
   };
 
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>(30);
@@ -60,8 +52,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (periodRef.current && !periodRef.current.contains(e.target as Node))
-        setPeriodOpen(false);
+      if (periodRef.current && !periodRef.current.contains(e.target as Node)) setPeriodOpen(false);
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
@@ -72,11 +63,14 @@ export default function DashboardPage() {
   const [categoryData, setCategoryData] = useState<CategoryStat[]>([]);
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-
-  // isInitialLoad=true — показываем skeleton только при первом открытии страницы
-  // isLoading=true    — тихое обновление данных (старые данные остаются на экране)
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Показываем skeleton только если начальная загрузка идёт дольше 2 секунд
+  const showSkeleton = useDelayedSkeleton(isLoading && isInitialLoad, 2000);
+
+  // При смене периода данные остаются видны — только opacity уменьшается
+  const fadeOnUpdate = `transition-opacity duration-500 ${isLoading && !isInitialLoad ? 'opacity-50' : 'opacity-100'}`;
 
   useEffect(() => {
     const load = async () => {
@@ -94,18 +88,12 @@ export default function DashboardPage() {
         ]);
 
         const allTx = txRes.data.items ?? [];
-
         let totalIncome = 0, totalExpense = 0;
         for (const tx of allTx) {
           if (tx.transaction_type === 'income') totalIncome += Number(tx.amount);
           if (tx.transaction_type === 'expense') totalExpense += Number(tx.amount);
         }
-        setStats({
-          totalIncome,
-          totalExpense,
-          totalBalance: Number(balanceRes.data?.total_balance ?? 0),
-        });
-
+        setStats({ totalIncome, totalExpense, totalBalance: Number(balanceRes.data?.total_balance ?? 0) });
         setRecentTx(allTx.slice(0, 5));
 
         const catMap: Record<string, number> = {};
@@ -115,8 +103,7 @@ export default function DashboardPage() {
           catMap[name] = (catMap[name] ?? 0) + Number(tx.amount);
         }
         setCategoryData(
-          Object.entries(catMap)
-            .sort(([, a], [, b]) => b - a)
+          Object.entries(catMap).sort(([, a], [, b]) => b - a)
             .map(([name, value], i) => ({ name, value, color: CHART_COLORS[i % CHART_COLORS.length] }))
         );
 
@@ -127,14 +114,12 @@ export default function DashboardPage() {
           if (tx.transaction_type === 'income') byDate[d].income += Number(tx.amount);
           if (tx.transaction_type === 'expense') byDate[d].expense += Number(tx.amount);
         }
-        setChartData(
-          Object.entries(byDate).map(([date, v]) => ({ date, ...v })).slice(-14)
-        );
+        setChartData(Object.entries(byDate).map(([date, v]) => ({ date, ...v })).slice(-14));
       } catch (err) {
         console.error('Dashboard load error:', err);
       } finally {
         setIsLoading(false);
-        setIsInitialLoad(false); // после первого запроса skeleton больше не показываем
+        setIsInitialLoad(false);
       }
     };
     load();
@@ -146,14 +131,14 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
 
-      {/* Header */}
+      {/* Header — всегда виден */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <nav className="text-xs text-default-400 mb-1"><span>Dashboard</span></nav>
           <h1 className="text-3xl font-bold text-foreground">Обзор финансов</h1>
           <p className="text-default-500 text-sm mt-1">
             Актуальные данные за последние{' '}
             <span className="text-foreground font-medium">{period} дней</span>
+            {/* Индикатор фонового обновления */}
             {isLoading && !isInitialLoad && (
               <span className="ml-2 inline-block w-3 h-3 rounded-full border-2
                                border-primary border-t-transparent animate-spin align-middle" />
@@ -161,7 +146,6 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Period dropdown */}
         <div ref={periodRef} className="relative">
           <button
             onClick={() => setPeriodOpen(v => !v)}
@@ -178,8 +162,7 @@ export default function DashboardPage() {
             <div className={`absolute right-0 mt-2 w-44 glass-dropdown rounded-xl py-1 z-50
                              ${dropAnimating ? 'animate-dropdown' : 'animate-dropdown-out'}`}>
               {PERIODS.map(p => (
-                <button
-                  key={p}
+                <button key={p}
                   onClick={() => { setPeriod(p); setPeriodOpen(false); }}
                   className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 transition-colors
                               ${period === p ? 'text-primary font-medium' : 'text-foreground'}`}
@@ -192,15 +175,20 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Metric Cards — skeleton ТОЛЬКО при первой загрузке */}
+      {/* ── Metric Cards ─────────────────────────────────────────────────────
+           isInitialLoad && !showSkeleton → null (данные идут быстро, ждём)
+           isInitialLoad &&  showSkeleton → skeleton (медленный бэкенд)
+          !isInitialLoad                 → реальный контент + stagger
+      */}
       {isInitialLoad ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-          {Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)}
-        </div>
+        showSkeleton ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+            {Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : null
       ) : (
-        // key={period} — stagger перезапускается при смене периода
         <div key={`metrics-${period}`}
-          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 stagger-container">
+          className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 stagger-container ${fadeOnUpdate}`}>
           <MetricCard
             label="Баланс" value={stats.totalBalance.toLocaleString('ru-RU')} sub="₽ на счетах"
             icon={<Wallet className="w-6 h-6" />} iconBg="bg-primary/10 text-primary"
@@ -220,8 +208,7 @@ export default function DashboardPage() {
                 <p className="text-2xl font-bold mt-1 text-foreground">{saved.toLocaleString('ru-RU')}</p>
                 <p className="text-xs text-default-400 mt-0.5">{savedPct}% от доходов</p>
               </div>
-              <div className="w-11 h-11 rounded-xl bg-warning/10 text-warning
-                              flex items-center justify-center flex-shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-warning/10 text-warning flex items-center justify-center flex-shrink-0">
                 <PiggyBank className="w-6 h-6" />
               </div>
             </div>
@@ -233,23 +220,23 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Charts */}
+      {/* ── Charts ── */}
       {isInitialLoad ? (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-          <SkeletonChart className="lg:col-span-3 h-80" />
-          <SkeletonChart className="lg:col-span-2 h-80" />
-        </div>
+        showSkeleton ? (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+            <SkeletonBlock className="lg:col-span-3 h-80" />
+            <SkeletonBlock className="lg:col-span-2 h-80" />
+          </div>
+        ) : null
       ) : (
         <div key={`charts-${period}`}
-          className="grid grid-cols-1 lg:grid-cols-5 gap-5 stagger-container">
-          <div className={`glass-card rounded-2xl p-6 lg:col-span-3 transition-opacity duration-300
-                           ${isLoading ? 'opacity-60' : 'opacity-100'}`}>
+          className={`grid grid-cols-1 lg:grid-cols-5 gap-5 stagger-container ${fadeOnUpdate}`}>
+          <div className="glass-card rounded-2xl p-6 lg:col-span-3">
             <h2 className="text-base font-semibold mb-5 text-foreground">Доходы и расходы</h2>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-                <XAxis dataKey="date"
-                  tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="date" tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false}
                   tickFormatter={v => `${(v / 1000).toFixed(0)}k`} width={36} />
                 <Tooltip contentStyle={tooltipStyle}
@@ -263,8 +250,7 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          <div className={`glass-card rounded-2xl p-6 lg:col-span-2 transition-opacity duration-300
-                           ${isLoading ? 'opacity-60' : 'opacity-100'}`}>
+          <div className="glass-card rounded-2xl p-6 lg:col-span-2">
             <h2 className="text-base font-semibold mb-5 text-foreground">Категории расходов</h2>
             {categoryData.length === 0 ? (
               <p className="text-center text-default-400 py-12 text-sm">Нет расходов за период</p>
@@ -274,9 +260,7 @@ export default function DashboardPage() {
                   <PieChart>
                     <Pie data={categoryData} cx="50%" cy="50%"
                       innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
-                      {categoryData.map((entry, idx) => (
-                        <Cell key={idx} fill={entry.color} />
-                      ))}
+                      {categoryData.map((e, idx) => <Cell key={idx} fill={e.color} />)}
                     </Pie>
                     <Tooltip contentStyle={tooltipStyle}
                       formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`} />
@@ -285,7 +269,6 @@ export default function DashboardPage() {
                 <div className="space-y-2 mt-3">
                   {categoryData.map((c, i) => {
                     const total = categoryData.reduce((s, x) => s + x.value, 0);
-                    const pct = Math.round((c.value / total) * 100);
                     return (
                       <div key={i} className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
@@ -293,7 +276,9 @@ export default function DashboardPage() {
                             style={{ background: c.color }} />
                           <span className="text-default-500">{c.name}</span>
                         </div>
-                        <span className="font-medium text-foreground">{pct}%</span>
+                        <span className="font-medium text-foreground">
+                          {Math.round((c.value / total) * 100)}%
+                        </span>
                       </div>
                     );
                   })}
@@ -304,70 +289,74 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Recent Transactions */}
-      <div className="glass-card rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-foreground">Последние транзакции</h2>
-          <Link href="/transactions"
-            className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
-            Все <ArrowUpRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        {isInitialLoad ? (
-          <div className="space-y-3">
-            {Array(5).fill(0).map((_, i) => <div key={i} className="h-12 shimmer rounded-xl" />)}
+      {/* ── Recent Transactions ── */}
+      {isInitialLoad ? (
+        showSkeleton ? (
+          <div className="glass-card rounded-2xl p-6">
+            <div className="h-6 shimmer rounded-lg w-48 mb-5" />
+            <div className="space-y-3">
+              {Array(5).fill(0).map((_, i) => <div key={i} className="h-12 shimmer rounded-xl" />)}
+            </div>
           </div>
-        ) : recentTx.length === 0 ? (
-          <p className="text-center text-default-400 py-8 text-sm">Транзакций пока нет</p>
-        ) : (
-          <div className={`overflow-x-auto transition-opacity duration-300
-                           ${isLoading ? 'opacity-60' : 'opacity-100'}`}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-divider">
-                  {['Дата', 'Категория', 'Описание', 'Сумма'].map(h => (
-                    <th key={h}
-                      className="text-left text-xs text-default-400 font-medium pb-3 pr-4 last:text-right">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentTx.map((tx, idx) => (
-                  <tr
-                    key={tx.id}
-                    onClick={() => setSelectedTx(tx)}
-                    className="border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer"
-                    style={{
-                      animation: 'stagger-in 0.65s cubic-bezier(0.16,1,0.3,1) both',
-                      animationDelay: `${0.05 + idx * 0.07}s`,
-                    }}
-                  >
-                    <td className="py-3.5 pr-4 text-default-400 whitespace-nowrap text-xs">
-                      {formatDateUI(tx.transaction_date)}
-                    </td>
-                    <td className="py-3.5 pr-4">
-                      <span className="px-2.5 py-0.5 rounded-lg bg-content2 text-xs font-medium text-default-500">
-                        {tx.category?.name ?? '—'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 pr-4 font-medium text-foreground">
-                      {tx.merchant ?? tx.description ?? '—'}
-                    </td>
-                    <td className={`py-3.5 text-right font-semibold tabular-nums
-                                    ${tx.transaction_type === 'income' ? 'text-success' : 'text-danger'}`}>
-                      {tx.transaction_type === 'income' ? '+' : '-'}
-                      {Number(tx.amount).toLocaleString('ru-RU')} ₽
-                    </td>
+        ) : null
+      ) : (
+        <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-base font-semibold text-foreground">Последние транзакции</h2>
+            <Link href="/transactions"
+              className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
+              Все <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {recentTx.length === 0 ? (
+            <p className="text-center text-default-400 py-8 text-sm">Транзакций пока нет</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-divider">
+                    {['Дата', 'Категория', 'Описание', 'Сумма'].map(h => (
+                      <th key={h}
+                        className="text-left text-xs text-default-400 font-medium pb-3 pr-4 last:text-right">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  {recentTx.map((tx, idx) => (
+                    <tr key={tx.id}
+                      onClick={() => setSelectedTx(tx)}
+                      className="border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer"
+                      style={{
+                        animation: 'stagger-in 0.65s cubic-bezier(0.16,1,0.3,1) both',
+                        animationDelay: `${0.05 + idx * 0.07}s`,
+                      }}
+                    >
+                      <td className="py-3.5 pr-4 text-default-400 whitespace-nowrap text-xs">
+                        {formatDateUI(tx.transaction_date)}
+                      </td>
+                      <td className="py-3.5 pr-4">
+                        <span className="px-2.5 py-0.5 rounded-lg bg-content2 text-xs font-medium text-default-500">
+                          {tx.category?.name ?? '—'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 pr-4 font-medium text-foreground">
+                        {tx.merchant ?? tx.description ?? '—'}
+                      </td>
+                      <td className={`py-3.5 text-right font-semibold tabular-nums
+                                      ${tx.transaction_type === 'income' ? 'text-success' : 'text-danger'}`}>
+                        {tx.transaction_type === 'income' ? '+' : '-'}
+                        {Number(tx.amount).toLocaleString('ru-RU')} ₽
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       <TransactionDetailModal tx={selectedTx} onClose={() => setSelectedTx(null)} />
     </div>

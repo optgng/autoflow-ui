@@ -190,10 +190,6 @@ export default function AccountsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <nav className="text-xs text-default-400 mb-1">
-            <span>Dashboard</span><span className="mx-1.5">/</span>
-            <span className="text-foreground">Счета</span>
-          </nav>
           <h1 className="text-3xl font-bold text-foreground">Счета</h1>
         </div>
         <button

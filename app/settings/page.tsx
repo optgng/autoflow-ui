@@ -187,9 +187,6 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-3xl">
       {/* Header */}
       <div>
-        <nav className="text-xs text-default-400 mb-1">
-          <span>Dashboard</span><span className="mx-1.5">/</span><span className="text-foreground">Настройки</span>
-        </nav>
         <h1 className="text-3xl font-bold text-foreground">Настройки</h1>
       </div>
 
