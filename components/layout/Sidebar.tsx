@@ -50,7 +50,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="p-6 border-b border-divider">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00874A] to-[#006B3B] flex items-center justify-center shadow-glow flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#3D7EFF] to-[#1644B8] flex items-center justify-center shadow-glow flex-shrink-0">
             <Wallet className="w-5 h-5 text-black" />
           </div>
           <div>

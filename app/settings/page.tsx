@@ -244,7 +244,7 @@ export default function SettingsPage() {
           <button
             onClick={handleSaveProfile}
             disabled={profileSaving}
-            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#00874A] to-[#006B3B] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
+            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
           >
             {profileSaving ? <RefreshCw className="w-4 h-4 animate-spin" />
               : profileSaved ? <><Check className="w-4 h-4" /> Сохранено!</>
@@ -286,7 +286,7 @@ export default function SettingsPage() {
           <button
             onClick={handleChangePassword}
             disabled={pwdSaving || !currentPwd || !newPwd || !confirmPwd}
-            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#00874A] to-[#006B3B] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
+            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-60"
           >
             {pwdSaving ? <RefreshCw className="w-4 h-4 animate-spin" />
               : pwdSaved ? <><Check className="w-4 h-4" /> Изменён!</>
@@ -387,7 +387,7 @@ export default function SettingsPage() {
                 href={tgLinkData.deep_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-gradient-to-r from-[#00874A] to-[#006B3B] text-black text-sm font-semibold hover:opacity-90 transition-opacity"
+                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold hover:opacity-90 transition-opacity"
               >
                 <ExternalLink className="w-4 h-4" />
                 Открыть Telegram бота

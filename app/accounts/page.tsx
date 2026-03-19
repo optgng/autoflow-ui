@@ -189,7 +189,7 @@ export default function AccountsPage() {
         </div>
         <button
           onClick={() => { setShowCreate(true); setError(''); }}
-          className="flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-[#00874A] to-[#006B3B] text-black text-sm font-semibold hover:opacity-90 transition-all"
+          className="flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold hover:opacity-90 transition-all"
         >
           <Plus className="w-4 h-4" /> Наличный счёт
         </button>
@@ -282,7 +282,7 @@ export default function AccountsPage() {
                     <button
                       onClick={() => handleSave(acc)}
                       disabled={saving}
-                      className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-gradient-to-r from-[#00874A] to-[#006B3B] text-black text-sm font-semibold disabled:opacity-60"
+                      className="flex items-center gap-1.5 px-4 h-9 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8] text-black text-sm font-semibold disabled:opacity-60"
                     >
                       {saving
                         ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -400,7 +400,7 @@ export default function AccountsPage() {
               <button
                 onClick={handleCreate}
                 disabled={creating || !cashName.trim()}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-[#00874A] to-[#006B3B]
+                className="w-full h-11 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8]
 			   text-black text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Создать'}
