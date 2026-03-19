@@ -162,13 +162,17 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-8">
 
-      {/* Header — всегда виден */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Аналитика</h1>
           <p className="text-default-500 text-sm mt-1">
             Статистика за период:{' '}
             <span className="text-foreground font-medium">{PERIODS[periodIdx].label}</span>
+            {isLoading && !isInitialLoad && (
+              <span className="ml-2 inline-block w-3 h-3 rounded-full border-2
+                               border-primary border-t-transparent animate-spin align-middle" />
+            )}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -212,7 +216,7 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Totals */}
+      {/* ── Totals ── */}
       {isInitialLoad ? (
         showSkeleton ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -220,6 +224,7 @@ export default function AnalyticsPage() {
           </div>
         ) : null
       ) : (
+        // key → React пересоздаёт → stagger перезапускается при смене периода
         <div key={`totals-${periodIdx}`}
           className={`grid grid-cols-1 sm:grid-cols-3 gap-5 stagger-container ${fadeOnUpdate}`}>
           {[
@@ -243,11 +248,13 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Monthly chart */}
+      {/* ── Monthly chart ── */}
       {isInitialLoad ? (
         showSkeleton ? <Skeleton className="h-80" /> : null
       ) : (
-        <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
+        // key → анимация появления при смене периода, как charts-${period} на дашборде
+        <div key={`monthly-${periodIdx}`}
+          className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
           <h2 className="text-base font-semibold mb-5 text-foreground">Помесячная динамика</h2>
           {monthlyData.length === 0 ? (
             <p className="text-center text-default-400 py-16 text-sm">Нет данных за период</p>
@@ -271,7 +278,7 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Categories */}
+      {/* ── Categories ── */}
       {isInitialLoad ? (
         showSkeleton ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -280,7 +287,10 @@ export default function AnalyticsPage() {
           </div>
         ) : null
       ) : (
-        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5 ${fadeOnUpdate}`}>
+        // key → оба блока пересоздаются и анимируются при смене периода
+        <div key={`categories-${periodIdx}`}
+          className={`grid grid-cols-1 lg:grid-cols-2 gap-5 stagger-container ${fadeOnUpdate}`}>
+
           {/* Расходы */}
           <div className="glass-card rounded-2xl p-6">
             <h2 className="text-base font-semibold mb-5 text-foreground">Расходы по категориям</h2>
@@ -364,7 +374,7 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Top merchants */}
+      {/* ── Top merchants ── */}
       {isInitialLoad ? (
         showSkeleton ? (
           <div className="glass-card rounded-2xl p-6">
@@ -375,12 +385,14 @@ export default function AnalyticsPage() {
           </div>
         ) : null
       ) : (
-        <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
+        // key на внешней обёртке — пересоздаёт весь блок целиком
+        <div key={`merchants-${periodIdx}`}
+          className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
           <h2 className="text-base font-semibold mb-5 text-foreground">Топ-5 трат</h2>
           {topMerchants.length === 0 ? (
             <p className="text-center text-default-400 py-10 text-sm">Нет данных о продавцах</p>
           ) : (
-            <div key={`merchants-${periodIdx}`} className="space-y-3 stagger-container">
+            <div className="space-y-3 stagger-container">
               {topMerchants.map((m, i) => {
                 const pct = Math.round((m.total / maxMerchant) * 100);
                 return (
@@ -412,9 +424,11 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Balance trend */}
+      {/* ── Balance trend ── */}
       {!isInitialLoad && monthlyData.length > 1 && (
-        <div className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
+        // key → перерисовывается при смене периода
+        <div key={`trend-${periodIdx}`}
+          className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
           <h2 className="text-base font-semibold mb-5 text-foreground">Тренд баланса</h2>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={monthlyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
