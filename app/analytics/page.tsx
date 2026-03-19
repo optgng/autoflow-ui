@@ -9,6 +9,7 @@ import { useTheme } from 'next-themes';
 import { apiClient } from '@/lib/api';
 import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
 import { useDelayedSkeleton } from '@/lib/hooks/useDelayedSkeleton';
+import { ChartTooltip } from '@/components/ui/ChartTooltip';
 
 interface CategoryStat { category_name: string; total: number; color?: string; }
 interface MonthlyPoint { month: string; income: number; expense: number; balance: number; }
@@ -306,8 +307,7 @@ export default function AnalyticsPage() {
                         <Cell key={i} fill={c.color ?? CHART_COLORS[i % CHART_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={tooltipStyle}
-                      formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`} />
+                    <Tooltip content={<ChartTooltip style={tooltipStyle} />} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex-1 space-y-2.5 w-full">

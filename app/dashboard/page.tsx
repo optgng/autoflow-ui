@@ -13,6 +13,7 @@ import type { Transaction } from '@/lib/types';
 import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal';
 import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
 import { useDelayedSkeleton } from '@/lib/hooks/useDelayedSkeleton';
+import { ChartTooltip } from '@/components/ui/ChartTooltip';
 
 interface DashboardStats { totalIncome: number; totalExpense: number; totalBalance: number; }
 interface ChartPoint { date: string; income: number; expense: number; }
@@ -262,8 +263,7 @@ export default function DashboardPage() {
                       innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
                       {categoryData.map((e, idx) => <Cell key={idx} fill={e.color} />)}
                     </Pie>
-                    <Tooltip contentStyle={tooltipStyle}
-                      formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`} />
+                    <Tooltip content={<ChartTooltip style={tooltipStyle}/>} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="space-y-2 mt-3">

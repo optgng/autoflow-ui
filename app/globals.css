@@ -421,6 +421,18 @@
     }
   }
 
+  @keyframes tooltip-in {
+    from { opacity: 0; transform: scale(0.92) translateY(6px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0);   }
+  }
+
+  .recharts-tooltip-wrapper {
+    /* Recharts управляет позицией через inline style — анимацию вешаем на wrapper */
+    animation: tooltip-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+    /* Без этого Recharts иногда добавляет transition: none */
+    transition: none !important;
+  }
+
   /* ═══ MODAL ════════════════════════════════════════════════════════ */
   .animate-overlay-in {
     animation: overlay-in 0.40s ease both;
