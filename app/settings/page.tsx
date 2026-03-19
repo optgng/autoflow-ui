@@ -336,10 +336,10 @@ export default function SettingsPage() {
           ) : tgStatus.is_linked ? (
             // Привязан
             <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-[#00FFA3]/10 border border-[#00FFA3]/30">
-                <CheckCircle className="w-5 h-5 text-[#00FFA3] flex-shrink-0" />
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-success/10 border border-success/30">
+                <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-[#00FFA3]">Telegram привязан</p>
+                  <p className="text-sm font-medium text-success">Telegram привязан</p>
                   {tgStatus.telegram_username && (
                     <p className="text-xs text-default-400 mt-0.5">
                       @{tgStatus.telegram_username}
@@ -397,7 +397,7 @@ export default function SettingsPage() {
                 className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-content2 border border-divider text-sm text-default-500 hover:text-foreground hover:bg-content3 transition-all"
               >
                 {copied
-                  ? <><Check className="w-4 h-4 text-[#00FFA3]" /><span className="text-[#00FFA3]">Скопировано</span></>
+                  ? <><Check className="w-4 h-4 text-success" /><span className="text-success">Скопировано</span></>
                   : <><Copy className="w-4 h-4" />Скопировать ссылку</>
                 }
               </button>

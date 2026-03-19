@@ -207,14 +207,14 @@ export default function TransactionsPage() {
                     <td className="px-3 py-3.5 text-default-400 text-xs">
                       {tx.account?.name ?? '—'}
                     </td>
-                    <td className={`px-3 py-3.5 font-semibold tabular-nums ${tx.transaction_type === 'income' ? 'text-[#00FFA3]' : 'text-[#FF3366]'
+                    <td className={`px-3 py-3.5 font-semibold tabular-nums ${tx.transaction_type === 'income' ? 'text-success' : 'text-[#FF3366]'
                       }`}>
                       {tx.transaction_type === 'income' ? '+' : '-'}
                       {Number(tx.amount).toLocaleString('ru-RU')} ₽
                     </td>
                     <td className="px-3 py-3.5">
                       <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${tx.transaction_type === 'income'
-                        ? 'bg-[#00FFA3]/10 text-[#00FFA3]'
+                        ? 'bg-success/10 text-success'
                         : tx.transaction_type === 'expense'
                           ? 'bg-[#FF3366]/10 text-[#FF3366]'
                           : 'bg-primary/10 text-primary'

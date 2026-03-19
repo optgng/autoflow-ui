@@ -5,6 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell, ResponsiveContainer
 } from 'recharts';
+import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import { formatDateUI } from '@/lib/types';
@@ -38,6 +39,14 @@ export default function DashboardPage() {
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark'
+
+  const COLORS = {
+    income: isDark ? '#00FFA3' : '#00874A',
+    expense: isDark ? '#FF3366' : '#DC2626',
+    primary: isDark ? '#3D7EFF' : '#1A6EF5',
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -165,7 +174,7 @@ export default function DashboardPage() {
             />
             <MetricCard
               label="Доходы" value={stats.totalIncome.toLocaleString('ru-RU')}
-              icon={<TrendingUp className="w-6 h-6" />} iconBg="bg-[#00FFA3]/10 text-[#00FFA3]"
+              icon={<TrendingUp className="w-6 h-6" />} iconBg="bg-success/10 text-success"
             />
             <MetricCard
               label="Расходы" value={stats.totalExpense.toLocaleString('ru-RU')}
@@ -302,7 +311,7 @@ export default function DashboardPage() {
                     <td className="py-3.5 pr-4 font-medium text-foreground">
                       {tx.merchant ?? tx.description ?? '—'}
                     </td>
-                    <td className={`py-3.5 text-right font-semibold tabular-nums ${tx.transaction_type === 'income' ? 'text-[#00FFA3]' : 'text-[#FF3366]'}`}>
+                    <td className={`py-3.5 text-right font-semibold tabular-nums ${tx.transaction_type === 'income' ? 'text-success' : 'text-[#FF3366]'}`}>
                       {tx.transaction_type === 'income' ? '+' : '-'}
                       {Number(tx.amount).toLocaleString('ru-RU')} ₽
                     </td>

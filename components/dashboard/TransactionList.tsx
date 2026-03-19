@@ -61,11 +61,10 @@ export default function TransactionList({
                 </TableCell>
                 <TableCell>
                   <span
-                    className={`font-semibold ${
-                      tx.amount > 0
-                        ? "text-[#00FFA3]"
+                    className={`font-semibold ${tx.amount > 0
+                        ? "text-success"
                         : "text-[#FF3366]"
-                    }`}
+                      }`}
                   >
                     {tx.amount > 0 ? "+" : ""}
                     {Math.abs(tx.amount).toLocaleString("ru-RU")} ₽
