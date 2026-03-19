@@ -136,10 +136,10 @@ function AccountCard({
   };
 
   return (
-    <div className="glass-card rounded-2xl p-5 overflow-hidden">
+    <div className="glass-card rounded-2xl p-5">
       {/*
-        key={animKey} — при каждом openEdit/closeEdit React пересоздаёт узел,
-        анимация запускается заново с правильным классом
+        key меняется при каждом openEdit/closeEdit → React пересоздаёт узел
+        animClass уже обновлён через ref к моменту рендера
       */}
       <div key={animKey} className={animClass}>
         {isEditing ? (
@@ -194,7 +194,7 @@ function AccountCard({
                   : <Check className="w-3.5 h-3.5" />}
                 Сохранить
               </button>
-              <button onClick={closeEdit} // ← animate-tab-back
+              <button onClick={closeEdit}
                 className="flex items-center gap-1.5 px-4 h-9 rounded-xl
                            bg-content2 border border-divider text-sm
                            text-default-400 hover:text-foreground transition-colors">
@@ -229,7 +229,7 @@ function AccountCard({
                 {formatBalance(acc.balance, acc.currency)}
               </p>
               <div className="flex items-center gap-1">
-                <button onClick={handleOpenEdit} // ← animate-tab-in
+                <button onClick={handleOpenEdit}
                   className="p-2 rounded-lg text-default-400 hover:text-foreground
                              hover:bg-content2 transition-all" aria-label="Редактировать">
                   <Pencil className="w-4 h-4" />
