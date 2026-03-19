@@ -395,6 +395,32 @@
     }
   }
 
+  /* Вход справа → центр */
+  @keyframes tab-in {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Вход слева → центр (назад) */
+  @keyframes tab-back {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
   /* ═══ MODAL ════════════════════════════════════════════════════════ */
   .animate-overlay-in {
     animation: overlay-in 0.40s ease both;
@@ -469,11 +495,11 @@
 
   /* ═══ TABS ══════════════════════════════════════════════════════════ */
   .animate-tab-in {
-    animation: tab-in-right 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: tab-in 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .animate-tab-back {
-    animation: tab-in-left 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: tab-back 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   /* ═══ GLASS MODAL — непрозрачнее glass-card ════════════════════════ */
