@@ -3,7 +3,7 @@ import { X, Calendar, CreditCard, Tag, Hash, ArrowRightLeft } from 'lucide-react
 import type { Transaction } from '@/lib/types';
 import { formatDateUI } from '@/lib/types';
 import ModalPortal from '@/components/ui/ModalPortal';
-import { useAnimatedMount } from '@/hooks/useAnimatedMount';
+import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
 
 interface Props {
   tx: Transaction | null;

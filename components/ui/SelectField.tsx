@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
-import { useAnimatedMount } from '@/hooks/useAnimatedMount';
+import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
 
 interface SelectOption { value: string; label: string; }
 interface Props {
