@@ -431,19 +431,19 @@
   /* ═══ STAGGER ══════════════════════════════════════════════════════ */
   /* animation-fill-mode: both — элемент остаётся видимым после анимации */
   .stagger-container>* {
-    animation: stagger-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: stagger-in 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .stagger-container>*:nth-child(1) {
-    animation-delay: 0.10s;
+    animation-delay: 0.07s;
   }
 
   .stagger-container>*:nth-child(2) {
-    animation-delay: 0.18s;
+    animation-delay: 0.16s;
   }
 
   .stagger-container>*:nth-child(3) {
-    animation-delay: 0.24s;
+    animation-delay: 0.25s;
   }
 
   .stagger-container>*:nth-child(4) {
@@ -451,19 +451,19 @@
   }
 
   .stagger-container>*:nth-child(5) {
-    animation-delay: 0.40s;
+    animation-delay: 0.42s;
   }
 
   .stagger-container>*:nth-child(6) {
-    animation-delay: 0.46s;
+    animation-delay: 0.49s;
   }
 
   .stagger-container>*:nth-child(7) {
-    animation-delay: 0.52s;
+    animation-delay: 0.55s;
   }
 
   .stagger-container>*:nth-child(n+8) {
-    animation-delay: 0.56s;
+    animation-delay: 0.60s;
   }
 
 
