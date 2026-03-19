@@ -1,4 +1,5 @@
 'use client';
+import { useRef } from 'react';
 import { X, Calendar, CreditCard, Tag, Hash, ArrowRightLeft } from 'lucide-react';
 import type { Transaction } from '@/lib/types';
 import { formatDateUI } from '@/lib/types';
@@ -11,13 +12,19 @@ interface Props {
 }
 
 export default function TransactionDetailModal({ tx, onClose }: Props) {
-  const { mounted, animating } = useAnimatedMount(!!tx, 200);
+  // Сохраняем последнюю транзакцию — нужна во время exit-анимации
+  const lastTxRef = useRef<Transaction | null>(null);
+  if (tx) lastTxRef.current = tx;
 
-  if (!mounted || !tx) return null;
+  const { mounted, animating } = useAnimatedMount(!!tx, 220);
 
-  const amount = Number(tx.amount);
-  const isIncome = tx.transaction_type === 'income';
-  const isExpense = tx.transaction_type === 'expense';
+  // Размонтируемся только после завершения exit-анимации
+  if (!mounted) return null;
+
+  const displayTx = lastTxRef.current!;
+  const amount = Number(displayTx.amount);
+  const isIncome = displayTx.transaction_type === 'income';
+  const isExpense = displayTx.transaction_type === 'expense';
   const amountColor = isIncome ? 'text-success' : isExpense ? 'text-danger' : 'text-primary';
 
   return (
@@ -32,7 +39,7 @@ export default function TransactionDetailModal({ tx, onClose }: Props) {
         <div
           className={`relative glass-card rounded-2xl w-full max-w-md p-6
                       ${animating ? 'animate-modal-content' : 'animate-modal-out'}`}
-          onClick={(e) => e.stopPropagation()}
+          onClick={e => e.stopPropagation()}
         >
           <button
             onClick={onClose}
@@ -44,10 +51,10 @@ export default function TransactionDetailModal({ tx, onClose }: Props) {
 
           <div className="mb-6 pr-8">
             <p className="text-xs text-default-400 uppercase tracking-wide mb-1">
-              {tx.category?.name ?? 'Без категории'}
+              {displayTx.category?.name ?? 'Без категории'}
             </p>
             <h2 className="text-xl font-bold text-foreground">
-              {tx.merchant ?? tx.description ?? '—'}
+              {displayTx.merchant ?? displayTx.description ?? '—'}
             </h2>
             <p className={`text-2xl font-bold mt-1 ${amountColor}`}>
               {isIncome ? '+' : isExpense ? '-' : ''}
@@ -56,19 +63,19 @@ export default function TransactionDetailModal({ tx, onClose }: Props) {
           </div>
 
           <div>
-            <DetailRow icon={<Calendar className="w-4 h-4" />} label="Дата" value={formatDateUI(tx.transaction_date)} />
-            <DetailRow icon={<Tag className="w-4 h-4" />} label="Категория" value={tx.category?.name ?? '—'} />
-            <DetailRow icon={<CreditCard className="w-4 h-4" />} label="Счёт" value={tx.account?.name ?? '—'} />
-            {tx.external_id && (
-              <DetailRow icon={<Hash className="w-4 h-4" />} label="Код авторизации" value={tx.external_id} mono />
+            <DetailRow icon={<Calendar className="w-4 h-4" />} label="Дата" value={formatDateUI(displayTx.transaction_date)} />
+            <DetailRow icon={<Tag className="w-4 h-4" />} label="Категория" value={displayTx.category?.name ?? '—'} />
+            <DetailRow icon={<CreditCard className="w-4 h-4" />} label="Счёт" value={displayTx.account?.name ?? '—'} />
+            {displayTx.external_id && (
+              <DetailRow icon={<Hash className="w-4 h-4" />} label="Код авторизации" value={displayTx.external_id} mono />
             )}
             <DetailRow
               icon={<ArrowRightLeft className="w-4 h-4" />}
               label="Источник"
-              value={tx.import_source === 'sber_pdf' ? 'Выписка Сбер' : 'Ручной ввод'}
+              value={displayTx.import_source === 'sber_pdf' ? 'Выписка Сбер' : 'Ручной ввод'}
             />
-            {tx.description && (
-              <DetailRow icon={<ArrowRightLeft className="w-4 h-4" />} label="Описание" value={tx.description} />
+            {displayTx.description && (
+              <DetailRow icon={<ArrowRightLeft className="w-4 h-4" />} label="Описание" value={displayTx.description} />
             )}
           </div>
 

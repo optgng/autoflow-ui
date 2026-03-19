@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/lib/hooks/useAuth';
-import Cookies from 'js-cookie';
 import {
   User, Lock, Bell, Check, RefreshCw, AlertCircle,
   Eye, EyeOff, ExternalLink, Send, CheckCircle,

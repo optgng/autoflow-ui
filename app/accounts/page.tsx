@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Plus, Pencil, CreditCard, Landmark, Wallet,
   X, Check, RefreshCw, AlertCircle, Trash2,  // ← добавить Trash2
@@ -7,6 +7,7 @@ import {
 import { apiClient } from '@/lib/api';
 import SelectField from '@/components/ui/SelectField';
 import ModalPortal from '@/components/ui/ModalPortal';
+import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
 
 // ─── Типы ────────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,14 @@ export default function AccountsPage() {
   // Удаление счетов
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const { mounted: createMounted, animating: createAnimating } = useAnimatedMount(showCreate, 220);
+  const { mounted: deleteMounted, animating: deleteAnimating } = useAnimatedMount(deleteId !== null, 220);
+
+  const deleteAccRef = useRef<Account | undefined>(undefined);
+  const deleteAcc = accounts.find(a => a.id === deleteId);
+  if (deleteAcc) deleteAccRef.current = deleteAcc;
+  const displayDeleteAcc = deleteAccRef.current;
 
   useEffect(() => { fetchAccounts(); }, []);
 
@@ -355,53 +364,48 @@ export default function AccountsPage() {
         </div>
       )}
 
-      {/* ── Модал создания наличных ── */}
-      {showCreate && (
+      {/* ── Модал создания ── */}
+      {createMounted && (
         <ModalPortal>
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+            className={`fixed inset-0 z-[100] flex items-center justify-center px-4
+                  ${createAnimating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
             onClick={() => { setShowCreate(false); setError(''); }}
           >
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-md animate-modal-overlay" />
+            <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" />
             <div
-              className="relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4 animate-modal-content"
-              onClick={(e) => e.stopPropagation()}
+              className={`relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4
+                    ${createAnimating ? 'animate-modal-content' : 'animate-modal-out'}`}
+              onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold text-foreground">Новый счёт (наличные)</h2>
-                <button onClick={() => setShowCreate(false)} className="text-default-400 hover:text-foreground">
+                <button onClick={() => setShowCreate(false)} className="text-default-400 hover:text-foreground p-1 rounded-lg hover:bg-white/5 transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               {error && (
-                <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
+                <p className="text-sm text-danger flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4" /> {error}
                 </p>
               )}
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-default-600">Название</label>
-                  <input
-                    value={cashName}
-                    onChange={(e) => setCashName(e.target.value)}
-                    placeholder="Кошелёк"
-                    className="input-field"
-                  />
+                  <label className="text-sm font-medium text-default-500">Название</label>
+                  <input value={cashName} onChange={e => setCashName(e.target.value)}
+                    placeholder="Кошелёк" className="input-field" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-default-600">Валюта</label>
-                  <SelectField
-                    value={cashCurrency}
-                    onChange={setCashCurrency}
-                    options={CURRENCY_OPTIONS}
-                  />
+                  <label className="text-sm font-medium text-default-500">Валюта</label>
+                  <SelectField value={cashCurrency} onChange={setCashCurrency} options={CURRENCY_OPTIONS} />
                 </div>
               </div>
               <button
                 onClick={handleCreate}
                 disabled={creating || !cashName.trim()}
                 className="w-full h-11 rounded-xl bg-gradient-to-r from-[#3D7EFF] to-[#1644B8]
-			   text-black text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+                     text-white text-sm font-semibold disabled:opacity-60
+                     flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
               >
                 {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Создать'}
               </button>
@@ -409,68 +413,63 @@ export default function AccountsPage() {
           </div>
         </ModalPortal>
       )}
-      {/* ── Модал подтверждения удаления ── */}
-      {deleteId !== null && (() => {
-        const acc = accounts.find(a => a.id === deleteId);
-        const isBankAcc = acc?.account_type !== 'cash';
-        return (
-          <ModalPortal>
+
+      {/* ── Модал удаления ── */}
+      {deleteMounted && displayDeleteAcc && (
+        <ModalPortal>
+          <div
+            className={`fixed inset-0 z-[100] flex items-center justify-center px-4
+                  ${deleteAnimating ? 'animate-overlay-in' : 'animate-overlay-out'}`}
+            onClick={() => { setDeleteId(null); setError(''); }}
+          >
+            <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" />
             <div
-              className="fixed inset-0 z-[100] flex items-center justify-center px-4"
-              onClick={() => { setDeleteId(null); setError(''); }}
+              className={`relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4
+                    ${deleteAnimating ? 'animate-modal-content' : 'animate-modal-out'}`}
+              onClick={e => e.stopPropagation()}
             >
-              <div className="absolute inset-0 bg-black/50 backdrop-blur-md animate-modal-overlay" />
-              <div
-                className="relative glass-card rounded-2xl p-6 w-full max-w-sm space-y-4 animate-modal-content"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between">
-                  <h2 className="font-semibold text-foreground">Удалить счёт?</h2>
-                  <button onClick={() => setDeleteId(null)} className="text-default-400 hover:text-foreground">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                {error && (
-                  <p className="text-sm text-[#FF3366] flex items-center gap-1.5">
-                    <AlertCircle className="w-4 h-4" /> {error}
-                  </p>
-                )}
-                <div className="p-4 rounded-xl bg-content2 space-y-1">
-                  <p className="font-medium text-foreground">{acc?.name}</p>
-                  {acc?.last_four_digits && (
-                    <p className="text-xs text-default-400">•••• {acc.last_four_digits}</p>
-                  )}
-                </div>
-                <p className="text-sm text-default-400">
-                  {isBankAcc
-                    ? 'Банковский счёт будет деактивирован. История транзакций сохранится.'
-                    : 'Счёт наличных и все связанные данные будут удалены безвозвратно.'
-                  }
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-foreground">Удалить счёт?</h2>
+                <button onClick={() => setDeleteId(null)} className="text-default-400 hover:text-foreground p-1 rounded-lg hover:bg-white/5 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              {error && (
+                <p className="text-sm text-danger flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4" /> {error}
                 </p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setDeleteId(null)}
-                    className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="flex-1 h-10 rounded-xl bg-[#FF3366] hover:bg-[#CC2952] text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                  >
-                    {deleting
-                      ? <RefreshCw className="w-4 h-4 animate-spin" />
-                      : isBankAcc ? 'Деактивировать' : 'Удалить'
-                    }
-                  </button>
-                </div>
+              )}
+              <div className="p-4 rounded-xl bg-content2 space-y-1">
+                <p className="font-medium text-foreground">{displayDeleteAcc.name}</p>
+                {displayDeleteAcc.last_four_digits && (
+                  <p className="text-xs text-default-400">•••• {displayDeleteAcc.last_four_digits}</p>
+                )}
+              </div>
+              <p className="text-sm text-default-400">
+                {displayDeleteAcc.account_type !== 'cash'
+                  ? 'Банковский счёт будет деактивирован. История транзакций сохранится.'
+                  : 'Счёт наличных и все связанные данные будут удалены безвозвратно.'}
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteId(null)}
+                  className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3
+                       transition-colors text-sm font-medium">
+                  Отмена
+                </button>
+                <button onClick={handleDelete} disabled={deleting}
+                  className="flex-1 h-10 rounded-xl bg-danger hover:bg-danger/80
+                       text-white text-sm font-semibold transition-colors
+                       disabled:opacity-60 flex items-center justify-center gap-2">
+                  {deleting
+                    ? <RefreshCw className="w-4 h-4 animate-spin" />
+                    : displayDeleteAcc.account_type !== 'cash' ? 'Деактивировать' : 'Удалить'}
+                </button>
               </div>
             </div>
-          </ModalPortal>
-        );
-      })()}
+          </div>
+        </ModalPortal>
+      )}
 
     </div>
   );
-
+}
