@@ -506,22 +506,20 @@
   /* Blur вешаем на внешний fixed-контейнер, не на вложенный div */
   .modal-overlay {
     /* backdrop-filter на самом overlay-контейнере */
-    backdrop-filter: blur(12px) saturate(140%);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(32px) saturate(140%);
+    -webkit-backdrop-filter: blur(32px) saturate(140%);
+    background: rgba(0, 0, 0, 0.75);
   }
 
   html.light .modal-overlay {
-    backdrop-filter: blur(12px) saturate(140%);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-    background: rgba(20, 15, 10, 0.35);
+    backdrop-filter: blur(32px) saturate(140%);
+    -webkit-backdrop-filter: blur(32px) saturate(140%);
+    background: rgba(20, 15, 10, 0.75);
   }
 
   /* Карточка модала — больше opacity чем glass-card */
   .glass-modal {
-    background: rgba(18, 18, 22, 0.88);
-    backdrop-filter: blur(32px) saturate(180%);
-    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    background: rgba(18, 18, 22, 0.99);
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow:
       0 24px 64px rgba(0, 0, 0, 0.60),
@@ -530,9 +528,7 @@
   }
 
   html.light .glass-modal {
-    background: rgba(250, 247, 242, 0.88);
-    backdrop-filter: blur(32px) saturate(180%);
-    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    background: rgba(250, 247, 242, 0.99);
     border: 1px solid rgba(255, 255, 255, 0.70);
     box-shadow:
       0 24px 64px rgba(80, 60, 30, 0.22),
