@@ -290,13 +290,11 @@
     stroke: rgba(140, 115, 80, 0.12);
   }
 
-  /* ═══════════════════════════════════════════
-   KEYFRAMES
-═══════════════════════════════════════════ */
+  /* ═══ KEYFRAMES ═══════════════════════════════════════════════════ */
   @keyframes modal-in {
     from {
       opacity: 0;
-      transform: scale(0.93) translateY(16px);
+      transform: scale(0.94) translateY(14px);
     }
 
     to {
@@ -313,7 +311,7 @@
 
     to {
       opacity: 0;
-      transform: scale(0.93) translateY(16px);
+      transform: scale(0.95) translateY(10px);
     }
   }
 
@@ -340,31 +338,31 @@
   @keyframes dropdown-in {
     from {
       opacity: 0;
-      transform: translateY(-10px) scaleY(0.92);
+      transform: translateY(-8px) scale(0.96);
     }
 
     to {
       opacity: 1;
-      transform: translateY(0) scaleY(1);
+      transform: translateY(0) scale(1);
     }
   }
 
   @keyframes dropdown-out {
     from {
       opacity: 1;
-      transform: translateY(0) scaleY(1);
+      transform: translateY(0) scale(1);
     }
 
     to {
       opacity: 0;
-      transform: translateY(-8px) scaleY(0.94);
+      transform: translateY(-6px) scale(0.97);
     }
   }
 
   @keyframes stagger-in {
     from {
       opacity: 0;
-      transform: translateY(18px);
+      transform: translateY(16px);
     }
 
     to {
@@ -376,7 +374,7 @@
   @keyframes tab-in-right {
     from {
       opacity: 0;
-      transform: translateX(16px);
+      transform: translateX(14px);
     }
 
     to {
@@ -388,7 +386,7 @@
   @keyframes tab-in-left {
     from {
       opacity: 0;
-      transform: translateX(-16px);
+      transform: translateX(-14px);
     }
 
     to {
@@ -397,48 +395,42 @@
     }
   }
 
-  /* ═══════════════════════════════════════════
-   MODAL
-═══════════════════════════════════════════ */
+  /* ═══ MODAL ════════════════════════════════════════════════════════ */
   .animate-overlay-in {
-    animation: overlay-in 0.22s ease forwards;
+    animation: overlay-in 0.22s ease both;
   }
 
   .animate-overlay-out {
-    animation: overlay-out 0.18s ease forwards;
+    animation: overlay-out 0.18s ease both;
   }
 
   .animate-modal-overlay {
-    animation: overlay-in 0.22s ease forwards;
+    animation: overlay-in 0.22s ease both;
   }
 
   .animate-modal-content {
-    animation: modal-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: modal-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .animate-modal-out {
-    animation: modal-out 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+    animation: modal-out 0.18s cubic-bezier(0.4, 0, 1, 1) both;
   }
 
-  /* ═══════════════════════════════════════════
-   DROPDOWN
-═══════════════════════════════════════════ */
+  /* ═══ DROPDOWN ═════════════════════════════════════════════════════ */
   .animate-dropdown {
-    animation: dropdown-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: dropdown-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
     transform-origin: top center;
   }
 
   .animate-dropdown-out {
-    animation: dropdown-out 0.15s cubic-bezier(0.4, 0, 1, 1) forwards;
+    animation: dropdown-out 0.15s cubic-bezier(0.4, 0, 1, 1) both;
     transform-origin: top center;
   }
 
-  /* ═══════════════════════════════════════════
-   STAGGER — карточки при загрузке страницы
-═══════════════════════════════════════════ */
+  /* ═══ STAGGER ══════════════════════════════════════════════════════ */
+  /* animation-fill-mode: both — элемент остаётся видимым после анимации */
   .stagger-container>* {
-    opacity: 0;
-    animation: stagger-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: stagger-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .stagger-container>*:nth-child(1) {
@@ -446,46 +438,40 @@
   }
 
   .stagger-container>*:nth-child(2) {
-    animation-delay: 0.09s;
+    animation-delay: 0.10s;
   }
 
   .stagger-container>*:nth-child(3) {
-    animation-delay: 0.14s;
+    animation-delay: 0.16s;
   }
 
   .stagger-container>*:nth-child(4) {
-    animation-delay: 0.19s;
+    animation-delay: 0.22s;
   }
 
   .stagger-container>*:nth-child(5) {
-    animation-delay: 0.24s;
+    animation-delay: 0.28s;
   }
 
   .stagger-container>*:nth-child(6) {
-    animation-delay: 0.29s;
+    animation-delay: 0.32s;
   }
 
   .stagger-container>*:nth-child(7) {
-    animation-delay: 0.34s;
+    animation-delay: 0.36s;
   }
 
-  .stagger-container>*:nth-child(8) {
-    animation-delay: 0.39s;
+  .stagger-container>*:nth-child(n+8) {
+    animation-delay: 0.38s;
   }
 
-  .stagger-container>*:nth-child(n+9) {
-    animation-delay: 0.42s;
-  }
-
-  /* ═══════════════════════════════════════════
-   TABS
-═══════════════════════════════════════════ */
+  /* ═══ TABS ══════════════════════════════════════════════════════════ */
   .animate-tab-in {
-    animation: tab-in-right 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: tab-in-right 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .animate-tab-back {
-    animation: tab-in-left 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: tab-in-left 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
 }

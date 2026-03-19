@@ -1,19 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export function useAnimatedMount(visible: boolean, duration = 200) {
   const [mounted, setMounted] = useState(visible);
-  const [animating, setAnimating] = useState(false);
+  const [animating, setAnimating] = useState(visible);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
+    clearTimeout(timerRef.current);
+
     if (visible) {
+      // React 18 батчит оба setState — один рендер, сразу enter-состояние
       setMounted(true);
-      // Дать браузеру отрисовать элемент, потом запустить enter
-      requestAnimationFrame(() => requestAnimationFrame(() => setAnimating(true)));
+      setAnimating(true);
     } else {
       setAnimating(false);
-      const t = setTimeout(() => setMounted(false), duration);
-      return () => clearTimeout(t);
+      timerRef.current = setTimeout(() => setMounted(false), duration);
     }
+
+    return () => clearTimeout(timerRef.current);
   }, [visible, duration]);
 
   return { mounted, animating };

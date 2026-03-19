@@ -11,6 +11,7 @@ import { apiClient } from '@/lib/api';
 import { formatDateUI } from '@/lib/types';
 import type { Transaction, Account, Category } from '@/lib/types';
 import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal';
+import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
 
 // ─── Типы ответов аналитики ───────────────────────────────────────────────────
 interface DashboardStats {
@@ -41,6 +42,7 @@ export default function DashboardPage() {
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark'
+  const { mounted: dropMounted, animating: dropAnimating } = useAnimatedMount(periodOpen, 160);
 
   const COLORS = {
     income: isDark ? '#00FFA3' : 'rgb(0, 135, 74)',
@@ -144,17 +146,19 @@ export default function DashboardPage() {
             onClick={() => setPeriodOpen(!periodOpen)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-content2 border border-divider text-sm font-medium hover:bg-content3 transition-colors"
           >
-            За {period} дней <ChevronDown className="w-4 h-4 text-default-400" />
+            За {period} дней <ChevronDown className={`transition-transform duration-200 ${periodOpen ? 'rotate-180' : ''}`} />
           </button>
-          {periodOpen && (
-            <div className="absolute right-0 mt-2 w-44 glass-dropdown rounded-xl py-1 z-50 shadow-lg animate-dropdown">
+          {dropMounted && (
+            <div className={`absolute right-0 mt-2 w-44 glass-dropdown rounded-xl py-1 z-50
+                     ${dropAnimating ? 'animate-dropdown' : 'animate-dropdown-out'}`}>
               {PERIODS.map((p) => (
                 <button
                   key={p}
                   onClick={() => { setPeriod(p); setPeriodOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-content2 transition-colors ${period === p ? 'text-primary font-medium' : 'text-foreground'}`}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 transition-colors
+                      ${period === p ? 'text-primary font-medium' : 'text-foreground'}`}
                 >
-                  За {p} дней
+                  {p} дней
                 </button>
               ))}
             </div>
@@ -163,55 +167,58 @@ export default function DashboardPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 stagger-container">
-        {isLoading ? (
-          Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
-            <MetricCard
-              label="Баланс" value={stats.totalBalance.toLocaleString('ru-RU')} sub="₽ на счетах"
-              icon={<Wallet className="w-6 h-6" />} iconBg="bg-primary/10 text-primary"
-            />
-            <MetricCard
-              label="Доходы" value={stats.totalIncome.toLocaleString('ru-RU')}
-              icon={<TrendingUp className="w-6 h-6" />} iconBg="bg-success/10 text-success"
-            />
-            <MetricCard
-              label="Расходы" value={stats.totalExpense.toLocaleString('ru-RU')}
-              icon={<TrendingDown className="w-6 h-6" />} iconBg="bg-[#FF3366]/10 text-[#FF3366]"
-            />
-            {/* Накоплено */}
-            <div className="glass-card rounded-2xl p-5 hover-lift">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Накоплено</p>
-                  <p className="text-2xl font-bold mt-1 text-foreground">
-                    {saved.toLocaleString('ru-RU')}
-                  </p>
-                  <p className="text-xs text-default-400 mt-0.5">{savedPct}% от доходов</p>
-                </div>
-                <div className="w-11 h-11 rounded-xl bg-[#FFB800]/10 text-[#FFB800] flex items-center justify-center flex-shrink-0">
-                  <PiggyBank className="w-6 h-6" />
-                </div>
+      {isLoading ? (
+        // ← skeleton БЕЗ stagger-container
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+          {Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 stagger-container">
+          <MetricCard
+            label="Баланс" value={stats.totalBalance.toLocaleString('ru-RU')} sub="₽ на счетах"
+            icon={<Wallet className="w-6 h-6" />} iconBg="bg-primary/10 text-primary"
+          />
+          <MetricCard
+            label="Доходы" value={stats.totalIncome.toLocaleString('ru-RU')}
+            icon={<TrendingUp className="w-6 h-6" />} iconBg="bg-success/10 text-success"
+          />
+          <MetricCard
+            label="Расходы" value={stats.totalExpense.toLocaleString('ru-RU')}
+            icon={<TrendingDown className="w-6 h-6" />} iconBg="bg-[#FF3366]/10 text-[#FF3366]"
+          />
+          {/* Накоплено */}
+          <div className="glass-card rounded-2xl p-5 hover-lift">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Накоплено</p>
+                <p className="text-2xl font-bold mt-1 text-foreground">
+                  {saved.toLocaleString('ru-RU')}
+                </p>
+                <p className="text-xs text-default-400 mt-0.5">{savedPct}% от доходов</p>
               </div>
-              <div className="h-2 bg-content3 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#FFB800] rounded-full transition-all"
-                  style={{ width: `${Math.min(savedPct, 100)}%` }}
-                />
+              <div className="w-11 h-11 rounded-xl bg-[#FFB800]/10 text-[#FFB800] flex items-center justify-center flex-shrink-0">
+                <PiggyBank className="w-6 h-6" />
               </div>
             </div>
-          </>
-        )}
-      </div>
-
+            <div className="h-2 bg-content3 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#FFB800] rounded-full transition-all"
+                style={{ width: `${Math.min(savedPct, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 stagger-container">
-        <div className="glass-card rounded-2xl p-6 lg:col-span-3">
-          <h2 className="text-base font-semibold mb-5 text-foreground">Доходы и расходы</h2>
-          {isLoading ? (
-            <div className="h-60 shimmer rounded-xl" />
-          ) : (
+      {isLoading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          <div className="glass-card rounded-2xl p-6 lg:col-span-3 h-80 shimmer" />
+          <div className="glass-card rounded-2xl p-6 lg:col-span-2 h-80 shimmer" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 stagger-container">
+          <div className="glass-card rounded-2xl p-6 lg:col-span-3">
+            <h2 className="text-base font-semibold mb-5 text-foreground">Доходы и расходы</h2>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -227,48 +234,41 @@ export default function DashboardPage() {
                 <Line type="monotone" dataKey="expense" name="Расходы" stroke="#FF3366" strokeWidth={2} dot={{ r: 3, fill: '#FF3366' }} />
               </LineChart>
             </ResponsiveContainer>
-          )}
-        </div>
+          </div>
 
-        <div className="glass-card rounded-2xl p-6 lg:col-span-2">
-          <h2 className="text-base font-semibold mb-5 text-foreground">Категории расходов</h2>
-          {isLoading || categoryData.length === 0 ? (
-            <div className="h-40 shimmer rounded-xl" />
-          ) : (
-            <>
-              <ResponsiveContainer width="100%" height={160}>
-                <PieChart>
-                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
-                    {categoryData.map((entry, idx) => (
-                      <Cell key={idx} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 12 }}
-                    formatter={(v: number) => v.toLocaleString('ru-RU')}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-2 mt-3">
-                {categoryData.map((c, i) => {
-                  const total = categoryData.reduce((s, x) => s + x.value, 0);
-                  const pct = Math.round((c.value / total) * 100);
-                  return (
-                    <div key={i} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: c.color }} />
-                        <span className="text-default-500">{c.name}</span>
-                      </div>
-                      <span className="font-medium text-foreground">{pct}%</span>
+          <div className="glass-card rounded-2xl p-6 lg:col-span-2">
+            <h2 className="text-base font-semibold mb-5 text-foreground">Категории расходов</h2>
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie data={categoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
+                  {categoryData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 12 }}
+                  formatter={(v: number) => v.toLocaleString('ru-RU')}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="space-y-2 mt-3">
+              {categoryData.map((c, i) => {
+                const total = categoryData.reduce((s, x) => s + x.value, 0);
+                const pct = Math.round((c.value / total) * 100);
+                return (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                      <span className="text-default-500">{c.name}</span>
                     </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+                    <span className="font-medium text-foreground">{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
-
+      )}
       {/* Recent Transactions */}
       <div className="glass-card rounded-2xl p-6">
         <div className="flex items-center justify-between mb-5">

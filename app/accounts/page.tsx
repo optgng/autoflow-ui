@@ -218,10 +218,10 @@ export default function AccountsPage() {
       ) : (
         <div className="space-y-3">
           {accounts.map(acc => (
-            <div key={acc.id} className="glass-card rounded-2xl p-5">
+            <div key={acc.id} className="glass-card rounded-2xl p-5 transition-all duration-300">
               {editId === acc.id ? (
                 /* ── Режим редактирования ── */
-                <div className="space-y-4">
+                <div className="space-y-4 animate-tab-in">
                   {error && (
                     <div className="flex items-center gap-2 text-sm text-[#FF3366]">
                       <AlertCircle className="w-4 h-4" /> {error}
@@ -300,7 +300,7 @@ export default function AccountsPage() {
                 </div>
               ) : (
                 /* ── Режим просмотра ── */
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between animate-tab-in">
                   {/* Левая часть — иконка + текст */}
                   <div className="flex items-center gap-4">
                     <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
