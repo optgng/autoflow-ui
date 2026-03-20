@@ -34,15 +34,15 @@ export type AccountType =
 export type Currency = 'RUB' | 'USD' | 'EUR' | 'GBP' | 'CNY' | 'BTC' | 'ETH';
 
 export interface Account {
-  id:                number;
-  name:              string;
-  account_type:      'card' | 'bank_account' | 'cash';
-  currency:          string;
-  balance:           string;
-  bank_name?:        string;
+  id: number;
+  name: string;
+  account_type: 'card' | 'bank_account' | 'cash';
+  currency: string;
+  balance: string;
+  bank_name?: string;
   last_four_digits?: string;
-  is_active:         boolean;
-  include_in_total:  boolean;
+  is_active: boolean;
+  include_in_total: boolean;
 }
 
 export interface AccountCreate {
@@ -64,34 +64,34 @@ export interface AccountUpdate extends Partial<AccountCreate> {
 
 // ─── Category ─────────────────────────────────────────────────────────────────
 export interface Category {
-  id:            number;
-  name:          string;
+  id: number;
+  name: string;
   category_type: 'income' | 'expense';
-  is_system:     boolean;
-  icon?:         string | null;
-  color?:        string | null;
+  is_system: boolean;
+  icon?: string | null;
+  color?: string | null;
 }
 
 // ─── Transaction ──────────────────────────────────────────────────────────────
-export type TransactionType = 'all' | 'income' | 'expense';
+export interface Category {
+  id: number;
+  name: string;
+  category_type: 'income' | 'expense' | 'transfer'; // ← добавить
+  icon?: string;
+  color?: string;
+}
 
 export interface Transaction {
-  id:               number;
-  transaction_date: string;       // "2026-03-18"
+  id: number;
   transaction_type: 'income' | 'expense' | 'transfer';
-  amount:           string;       // Decimal → строка
-  merchant:         string | null;
-  description:      string | null;
-  external_id:      string | null;
-  import_source:    string | null;
-  account?: {
-    id:   number;
-    name: string;
-  };
-  category?: {
-    id:   number;
-    name: string;
-  } | null;
+  amount: string | number;
+  transaction_date: string;
+  category?: Category;
+  account?: { id: number; name: string };
+  target_account?: { id: number; name: string } | null;
+  merchant?: string;
+  description?: string;
+  notes?: string;
 }
 
 export interface TransactionCreate {

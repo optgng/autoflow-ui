@@ -7,12 +7,14 @@ import {
 } from 'recharts';
 import { useTheme } from 'next-themes';
 import { apiClient } from '@/lib/api';
+import type { Transaction } from '@/lib/types';
 import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
 import { useDelayedSkeleton } from '@/lib/hooks/useDelayedSkeleton';
 import { ChartTooltip } from '@/components/ui/ChartTooltip';
 
 interface CategoryStat { category_name: string; total: number; color?: string; }
-interface MonthlyPoint { month: string; income: number; expense: number; balance: number; }
+// isPartial — месяц попадает в период частично (первый или последний)
+interface MonthlyPoint { month: string; income: number; expense: number; balance: number; isPartial: boolean; }
 interface TopMerchant { merchant: string; total: number; count: number; }
 
 const CHART_COLORS = ['#3D7EFF', '#FF3366', '#00FFA3', '#FFB800', '#A855F7', '#FF6600', '#06B6D4', '#1ABC9C'];
@@ -40,6 +42,34 @@ function formatMonth(yyyymm: string) {
   const [y, m] = yyyymm.split('-');
   const months = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
   return `${months[Number(m) - 1]} ${y}`;
+}
+
+/**
+ * Перевод между своими счетами — не доход и не расход.
+ * Сбер присылает их как income/expense, но с category_type === 'transfer'.
+ */
+function isInternalTransfer(tx: Transaction): boolean {
+  return (
+    tx.transaction_type === 'transfer' ||
+    tx.category?.category_type === 'transfer'
+  );
+}
+
+/**
+ * Месяц попадает в период частично, если:
+ * - это первый месяц и период начинается не с 1-го числа
+ * - это последний месяц и период заканчивается не в последний день
+ */
+function isPartialMonth(month: string, dateFrom: string, dateTo: string): boolean {
+  const startMonth = dateFrom.slice(0, 7);
+  const endMonth = dateTo.slice(0, 7);
+  if (month === startMonth && new Date(dateFrom).getDate() > 1) return true;
+  if (month === endMonth) {
+    const dt = new Date(dateTo);
+    const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+    if (dt.getDate() < lastDay) return true;
+  }
+  return false;
 }
 
 export default function AnalyticsPage() {
@@ -80,7 +110,8 @@ export default function AnalyticsPage() {
   const [incomeByCategory, setIncomeByCategory] = useState<CategoryStat[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyPoint[]>([]);
   const [topMerchants, setTopMerchants] = useState<TopMerchant[]>([]);
-  const [totals, setTotals] = useState({ income: 0, expense: 0, balance: 0 });
+  // balance убран — заменён на netFlow (income − expense за период без переводов)
+  const [totals, setTotals] = useState({ income: 0, expense: 0, netFlow: 0 });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -93,24 +124,28 @@ export default function AnalyticsPage() {
     setError('');
     try {
       const { dateFrom, dateTo } = getDateRange(PERIODS[periodIdx].days);
-      const [txRes, balanceRes] = await Promise.all([
-        apiClient.get('/transactions', {
-          params: { date_from: dateFrom, date_to: dateTo, page_size: 500, page: 1 },
-        }),
-        apiClient.get('/accounts/total-balance'),
-      ]);
 
-      const allTx = txRes.data.items ?? [];
+      // /accounts/total-balance убран — текущий снимок счетов не относится к периоду
+      const txRes = await apiClient.get('/transactions', {
+        params: { date_from: dateFrom, date_to: dateTo, page_size: 500, page: 1 },
+      });
+
+      const allTx: Transaction[] = txRes.data.items ?? [];
+
+      // Переводы исключаем из всех расчётов
+      const operationalTx = allTx.filter(tx => !isInternalTransfer(tx));
+
       let income = 0, expense = 0;
-      for (const tx of allTx) {
+      for (const tx of operationalTx) {
         if (tx.transaction_type === 'income') income += Number(tx.amount);
         if (tx.transaction_type === 'expense') expense += Number(tx.amount);
       }
-      setTotals({ income, expense, balance: Number(balanceRes.data?.total_balance ?? 0) });
+      setTotals({ income, expense, netFlow: income - expense });
 
+      // Категории — только реальные операции, без переводов
       const expCatMap: Record<string, number> = {};
       const incCatMap: Record<string, number> = {};
-      for (const tx of allTx) {
+      for (const tx of operationalTx) {
         const name = tx.category?.name ?? 'Прочее';
         if (tx.transaction_type === 'expense') expCatMap[name] = (expCatMap[name] ?? 0) + Number(tx.amount);
         if (tx.transaction_type === 'income') incCatMap[name] = (incCatMap[name] ?? 0) + Number(tx.amount);
@@ -124,20 +159,29 @@ export default function AnalyticsPage() {
           .map(([name, total], i) => ({ category_name: name, total, color: CHART_COLORS[i % CHART_COLORS.length] }))
       );
 
+      // Помесячная динамика — без переводов, с пометкой частичных месяцев
       const byMonth: Record<string, { income: number; expense: number }> = {};
-      for (const tx of allTx) {
+      for (const tx of operationalTx) {
         const month = tx.transaction_date.slice(0, 7);
         if (!byMonth[month]) byMonth[month] = { income: 0, expense: 0 };
         if (tx.transaction_type === 'income') byMonth[month].income += Number(tx.amount);
         if (tx.transaction_type === 'expense') byMonth[month].expense += Number(tx.amount);
       }
       setMonthlyData(
-        Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b))
-          .map(([month, v]) => ({ month, ...v, balance: v.income - v.expense }))
+        Object.entries(byMonth)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([month, v]) => ({
+            month,
+            income: v.income,
+            expense: v.expense,
+            balance: v.income - v.expense,
+            isPartial: isPartialMonth(month, dateFrom, dateTo),
+          }))
       );
 
+      // Топ-5 трат — только операционные расходы
       const merchantMap: Record<string, { total: number; count: number }> = {};
-      for (const tx of allTx) {
+      for (const tx of operationalTx) {
         if (tx.transaction_type !== 'expense' || !tx.merchant) continue;
         if (!merchantMap[tx.merchant]) merchantMap[tx.merchant] = { total: 0, count: 0 };
         merchantMap[tx.merchant].total += Number(tx.amount);
@@ -146,7 +190,8 @@ export default function AnalyticsPage() {
       setTopMerchants(
         Object.entries(merchantMap)
           .map(([merchant, v]) => ({ merchant, ...v }))
-          .sort((a, b) => b.total - a.total).slice(0, 5)
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 5)
       );
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Ошибка загрузки');
@@ -159,6 +204,7 @@ export default function AnalyticsPage() {
   useEffect(() => { load(); }, [load]);
 
   const maxMerchant = Math.max(...topMerchants.map(m => m.total), 1);
+  const hasPartialMonths = monthlyData.some(p => p.isPartial);
 
   return (
     <div className="space-y-8">
@@ -225,13 +271,13 @@ export default function AnalyticsPage() {
           </div>
         ) : null
       ) : (
-        // key → React пересоздаёт → stagger перезапускается при смене периода
         <div key={`totals-${periodIdx}`}
           className={`grid grid-cols-1 sm:grid-cols-3 gap-5 stagger-container ${fadeOnUpdate}`}>
           {[
             { label: 'Доходы', value: totals.income, color: C.income, Icon: TrendingUp },
             { label: 'Расходы', value: totals.expense, color: C.expense, Icon: TrendingDown },
-            { label: 'Баланс', value: totals.balance, color: C.primary, Icon: BarChart2 },
+            // Чистый поток = доходы − расходы за период; знак влияет на цвет
+            { label: 'Чистый поток', value: totals.netFlow, color: totals.netFlow >= 0 ? C.income : C.expense, Icon: BarChart2 },
           ].map(({ label, value, color, Icon }) => (
             <div key={label} className="glass-card rounded-2xl p-5 hover-lift">
               <div className="flex items-start justify-between mb-3">
@@ -242,7 +288,7 @@ export default function AnalyticsPage() {
                 </div>
               </div>
               <p className="text-2xl font-bold text-foreground">
-                {value.toLocaleString('ru-RU')} ₽
+                {value < 0 ? '−' : ''}{Math.abs(value).toLocaleString('ru-RU')} ₽
               </p>
             </div>
           ))}
@@ -253,23 +299,43 @@ export default function AnalyticsPage() {
       {isInitialLoad ? (
         showSkeleton ? <Skeleton className="h-80" /> : null
       ) : (
-        // key → анимация появления при смене периода, как charts-${period} на дашборде
         <div key={`monthly-${periodIdx}`}
           className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
-          <h2 className="text-base font-semibold mb-5 text-foreground">Помесячная динамика</h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-base font-semibold text-foreground">Помесячная динамика</h2>
+            {/* Подсказка о неполных месяцах — только когда они есть */}
+            {hasPartialMonths && (
+              <span className="text-xs text-default-400">* — неполный месяц</span>
+            )}
+          </div>
           {monthlyData.length === 0 ? (
             <p className="text-center text-default-400 py-16 text-sm">Нет данных за период</p>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={monthlyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-                <XAxis dataKey="month" tickFormatter={formatMonth}
-                  tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey="month"
+                  tickFormatter={(month) => {
+                    const point = monthlyData.find(p => p.month === month);
+                    return point?.isPartial ? `${formatMonth(month)}*` : formatMonth(month);
+                  }}
+                  tick={{ fill: C.tick, fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <YAxis tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false}
                   tickFormatter={v => `${(v / 1000).toFixed(0)}k`} width={36} />
-                <Tooltip contentStyle={tooltipStyle}
+                <Tooltip
+                  contentStyle={tooltipStyle}
                   formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`}
-                  labelFormatter={formatMonth} />
+                  labelFormatter={(month) => {
+                    const point = monthlyData.find(p => p.month === month);
+                    return point?.isPartial
+                      ? `${formatMonth(month)} (неполный)`
+                      : formatMonth(month);
+                  }}
+                />
                 <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
                 <Bar dataKey="income" name="Доходы" fill={C.income} radius={[4, 4, 0, 0]} />
                 <Bar dataKey="expense" name="Расходы" fill={C.expense} radius={[4, 4, 0, 0]} />
@@ -288,11 +354,10 @@ export default function AnalyticsPage() {
           </div>
         ) : null
       ) : (
-        // key → оба блока пересоздаются и анимируются при смене периода
         <div key={`categories-${periodIdx}`}
           className={`grid grid-cols-1 lg:grid-cols-2 gap-5 stagger-container ${fadeOnUpdate}`}>
 
-          {/* Расходы */}
+          {/* Расходы по категориям */}
           <div className="glass-card rounded-2xl p-6">
             <h2 className="text-base font-semibold mb-5 text-foreground">Расходы по категориям</h2>
             {expenseByCategory.length === 0 ? (
@@ -339,7 +404,7 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          {/* Доходы */}
+          {/* Доходы по категориям */}
           <div className="glass-card rounded-2xl p-6">
             <h2 className="text-base font-semibold mb-5 text-foreground">Доходы по категориям</h2>
             {incomeByCategory.length === 0 ? (
@@ -385,7 +450,6 @@ export default function AnalyticsPage() {
           </div>
         ) : null
       ) : (
-        // key на внешней обёртке — пересоздаёт весь блок целиком
         <div key={`merchants-${periodIdx}`}
           className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
           <h2 className="text-base font-semibold mb-5 text-foreground">Топ-5 трат</h2>
@@ -426,21 +490,35 @@ export default function AnalyticsPage() {
 
       {/* ── Balance trend ── */}
       {!isInitialLoad && monthlyData.length > 1 && (
-        // key → перерисовывается при смене периода
         <div key={`trend-${periodIdx}`}
           className={`glass-card rounded-2xl p-6 ${fadeOnUpdate}`}>
-          <h2 className="text-base font-semibold mb-5 text-foreground">Тренд баланса</h2>
+          <h2 className="text-base font-semibold mb-5 text-foreground">Тренд чистого потока</h2>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={monthlyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-              <XAxis dataKey="month" tickFormatter={formatMonth}
-                tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
+              <XAxis
+                dataKey="month"
+                tickFormatter={(month) => {
+                  const point = monthlyData.find(p => p.month === month);
+                  return point?.isPartial ? `${formatMonth(month)}*` : formatMonth(month);
+                }}
+                tick={{ fill: C.tick, fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
               <YAxis tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false}
                 tickFormatter={v => `${(v / 1000).toFixed(0)}k`} width={36} />
-              <Tooltip contentStyle={tooltipStyle}
+              <Tooltip
+                contentStyle={tooltipStyle}
                 formatter={(v: number) => `${v.toLocaleString('ru-RU')} ₽`}
-                labelFormatter={formatMonth} />
-              <Line type="monotone" dataKey="balance" name="Баланс"
+                labelFormatter={(month) => {
+                  const point = monthlyData.find(p => p.month === month);
+                  return point?.isPartial
+                    ? `${formatMonth(month)} (неполный)`
+                    : formatMonth(month);
+                }}
+              />
+              <Line type="monotone" dataKey="balance" name="Чистый поток"
                 stroke={C.primary} strokeWidth={2}
                 dot={{ r: 4, fill: C.primary }} activeDot={{ r: 6 }} />
             </LineChart>

@@ -15,15 +15,29 @@ import { useAnimatedMount } from '@/lib/hooks/useAnimatedMount';
 import { useDelayedSkeleton } from '@/lib/hooks/useDelayedSkeleton';
 import { ChartTooltip } from '@/components/ui/ChartTooltip';
 
-interface DashboardStats { totalIncome: number; totalExpense: number; totalBalance: number; }
+// totalBalance убран — теперь balances хранится отдельно по валютам
+interface DashboardStats { totalIncome: number; totalExpense: number; }
 interface ChartPoint { date: string; income: number; expense: number; }
 interface CategoryStat { name: string; value: number; color: string; }
 
 const CHART_COLORS = ['#3D7EFF', '#FF3366', '#00FFA3', '#FFB800', '#A855F7', '#FF6600'];
 const PERIODS = [7, 14, 30, 90] as const;
 
+/**
+ * Перевод между своими счетами — не доход и не расход.
+ * Сбер присылает их как income/expense, но с category_type === 'transfer'.
+ */
+function isInternalTransfer(tx: Transaction): boolean {
+  return (
+    tx.transaction_type === 'transfer' ||
+    tx.category?.category_type === 'transfer'
+  );
+}
+
 function SkeletonCard() { return <div className="glass-card rounded-2xl p-5 shimmer h-32" />; }
-function SkeletonBlock({ className = '' }: { className?: string }) { return <div className={`glass-card rounded-2xl shimmer ${className}`} />; }
+function SkeletonBlock({ className = '' }: { className?: string }) {
+  return <div className={`glass-card rounded-2xl shimmer ${className}`} />;
+}
 
 export default function DashboardPage() {
   const { resolvedTheme } = useTheme();
@@ -59,7 +73,9 @@ export default function DashboardPage() {
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  const [stats, setStats] = useState<DashboardStats>({ totalIncome: 0, totalExpense: 0, totalBalance: 0 });
+  const [stats, setStats] = useState<DashboardStats>({ totalIncome: 0, totalExpense: 0 });
+  // Балансы по каждой валюте отдельно — USD-наличные не суммируются с RUB
+  const [balances, setBalances] = useState<Record<string, number>>({});
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [categoryData, setCategoryData] = useState<CategoryStat[]>([]);
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
@@ -67,10 +83,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Показываем skeleton только если начальная загрузка идёт дольше 2 секунд
   const showSkeleton = useDelayedSkeleton(isLoading && isInitialLoad, 2000);
-
-  // При смене периода данные остаются видны — только opacity уменьшается
   const fadeOnUpdate = `transition-opacity duration-500 ${isLoading && !isInitialLoad ? 'opacity-50' : 'opacity-100'}`;
 
   useEffect(() => {
@@ -79,43 +92,66 @@ export default function DashboardPage() {
       try {
         const now = new Date();
         const dateTo = now.toISOString().split('T')[0];
-        const dateFrom = new Date(now.getTime() - period * 86400000).toISOString().split('T')[0];
+        const dateFrom = new Date(now.getTime() - period * 86_400_000).toISOString().split('T')[0];
 
         const [txRes, balanceRes] = await Promise.all([
           apiClient.get('/transactions', {
             params: { date_from: dateFrom, date_to: dateTo, page_size: 500, page: 1 },
           }),
-          apiClient.get('/accounts/total-balance'),
+          // Новый эндпоинт: { balances: { RUB: "102000.00", USD: "500.00" } }
+          apiClient.get('/accounts/balances-by-currency'),
         ]);
 
-        const allTx = txRes.data.items ?? [];
+        const allTx: Transaction[] = txRes.data.items ?? [];
+
+        // Переводы исключаем из расчётов доходов/расходов,
+        // но оставляем в списке последних операций для отображения
+        const operationalTx = allTx.filter(tx => !isInternalTransfer(tx));
+
         let totalIncome = 0, totalExpense = 0;
-        for (const tx of allTx) {
+        for (const tx of operationalTx) {
           if (tx.transaction_type === 'income') totalIncome += Number(tx.amount);
           if (tx.transaction_type === 'expense') totalExpense += Number(tx.amount);
         }
-        setStats({ totalIncome, totalExpense, totalBalance: Number(balanceRes.data?.total_balance ?? 0) });
+        setStats({ totalIncome, totalExpense });
+
+        // Парсим балансы по валютам из нового эндпоинта
+        const rawBalances: Record<string, string> = balanceRes.data?.balances ?? {};
+        const numericBalances: Record<string, number> = {};
+        for (const [cur, val] of Object.entries(rawBalances)) {
+          numericBalances[cur] = Number(val);
+        }
+        setBalances(numericBalances);
+
+        // Последние 5 — из всех транзакций, включая переводы
         setRecentTx(allTx.slice(0, 5));
 
+        // Pie chart — только реальные расходы без категорий-переводов
         const catMap: Record<string, number> = {};
-        for (const tx of allTx) {
+        for (const tx of operationalTx) {
           if (tx.transaction_type !== 'expense') continue;
           const name = tx.category?.name ?? 'Прочее';
           catMap[name] = (catMap[name] ?? 0) + Number(tx.amount);
         }
         setCategoryData(
-          Object.entries(catMap).sort(([, a], [, b]) => b - a)
+          Object.entries(catMap)
+            .sort(([, a], [, b]) => b - a)
             .map(([name, value], i) => ({ name, value, color: CHART_COLORS[i % CHART_COLORS.length] }))
         );
 
+        // Линейный график — без переводов, с правильной сортировкой по дате
         const byDate: Record<string, { income: number; expense: number }> = {};
-        for (const tx of allTx) {
+        for (const tx of operationalTx) {
           const d = formatDateUI(tx.transaction_date);
           if (!byDate[d]) byDate[d] = { income: 0, expense: 0 };
           if (tx.transaction_type === 'income') byDate[d].income += Number(tx.amount);
           if (tx.transaction_type === 'expense') byDate[d].expense += Number(tx.amount);
         }
-        setChartData(Object.entries(byDate).map(([date, v]) => ({ date, ...v })).slice(-14));
+        const sortedDays = Object.entries(byDate)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, v]) => ({ date, ...v }));
+        // Для коротких периодов показываем все дни, для длинных — последние 14
+        setChartData(period <= 14 ? sortedDays : sortedDays.slice(-14));
       } catch (err) {
         console.error('Dashboard load error:', err);
       } finally {
@@ -126,8 +162,14 @@ export default function DashboardPage() {
     load();
   }, [period]);
 
-  const saved = stats.totalIncome - stats.totalExpense;
-  const savedPct = stats.totalIncome > 0 ? Math.round((saved / stats.totalIncome) * 100) : 0;
+  // Чистый денежный поток за период (не путать с балансом счетов)
+  const netFlow = stats.totalIncome - stats.totalExpense;
+  const savedPct = stats.totalIncome > 0
+    ? Math.max(0, Math.round((netFlow / stats.totalIncome) * 100))
+    : 0;
+
+  const rubBalance = balances.RUB ?? 0;
+  const otherCurrencies = Object.entries(balances).filter(([cur]) => cur !== 'RUB');
 
   return (
     <div className="space-y-8">
@@ -139,7 +181,6 @@ export default function DashboardPage() {
           <p className="text-default-500 text-sm mt-1">
             Актуальные данные за последние{' '}
             <span className="text-foreground font-medium">{period} дней</span>
-            {/* Индикатор фонового обновления */}
             {isLoading && !isInitialLoad && (
               <span className="ml-2 inline-block w-3 h-3 rounded-full border-2
                                border-primary border-t-transparent animate-spin align-middle" />
@@ -176,11 +217,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Metric Cards ─────────────────────────────────────────────────────
-           isInitialLoad && !showSkeleton → null (данные идут быстро, ждём)
-           isInitialLoad &&  showSkeleton → skeleton (медленный бэкенд)
-          !isInitialLoad                 → реальный контент + stagger
-      */}
+      {/* ── Metric Cards ── */}
       {isInitialLoad ? (
         showSkeleton ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
@@ -190,32 +227,68 @@ export default function DashboardPage() {
       ) : (
         <div key={`metrics-${period}`}
           className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 stagger-container ${fadeOnUpdate}`}>
+
+          {/* Баланс — мультивалютный снимок счетов, не зависит от периода */}
+          <div className="glass-card rounded-2xl p-5 hover-lift">
+            <div className="flex items-start justify-between mb-3">
+              <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Баланс</p>
+              <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary
+                              flex items-center justify-center flex-shrink-0">
+                <Wallet className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-foreground">
+              {rubBalance.toLocaleString('ru-RU')} ₽
+            </p>
+            {otherCurrencies.length > 0
+              ? otherCurrencies.map(([cur, val]) => (
+                <p key={cur} className="text-xs text-default-400 mt-0.5">
+                  {val.toLocaleString('ru-RU')} {cur}
+                </p>
+              ))
+              : <p className="text-xs text-default-400 mt-0.5">на счетах</p>
+            }
+          </div>
+
           <MetricCard
-            label="Баланс" value={stats.totalBalance.toLocaleString('ru-RU')} sub="₽ на счетах"
-            icon={<Wallet className="w-6 h-6" />} iconBg="bg-primary/10 text-primary"
+            label="Доходы"
+            value={stats.totalIncome.toLocaleString('ru-RU')}
+            sub={`за ${period} дней`}
+            icon={<TrendingUp className="w-6 h-6" />}
+            iconBg="bg-success/10 text-success"
           />
           <MetricCard
-            label="Доходы" value={stats.totalIncome.toLocaleString('ru-RU')}
-            icon={<TrendingUp className="w-6 h-6" />} iconBg="bg-success/10 text-success"
+            label="Расходы"
+            value={stats.totalExpense.toLocaleString('ru-RU')}
+            sub={`за ${period} дней`}
+            icon={<TrendingDown className="w-6 h-6" />}
+            iconBg="bg-danger/10 text-danger"
           />
-          <MetricCard
-            label="Расходы" value={stats.totalExpense.toLocaleString('ru-RU')}
-            icon={<TrendingDown className="w-6 h-6" />} iconBg="bg-danger/10 text-danger"
-          />
+
+          {/* Чистый поток = доходы − расходы за период, без переводов */}
           <div className="glass-card rounded-2xl p-5 hover-lift">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Накоплено</p>
-                <p className="text-2xl font-bold mt-1 text-foreground">{saved.toLocaleString('ru-RU')}</p>
+                <p className="text-xs text-default-500 font-medium uppercase tracking-wide">
+                  Чистый поток
+                </p>
+                <p className={`text-2xl font-bold mt-1
+                               ${netFlow < 0 ? 'text-danger' : 'text-foreground'}`}>
+                  {netFlow < 0 ? '−' : ''}{Math.abs(netFlow).toLocaleString('ru-RU')} ₽
+                </p>
                 <p className="text-xs text-default-400 mt-0.5">{savedPct}% от доходов</p>
               </div>
-              <div className="w-11 h-11 rounded-xl bg-warning/10 text-warning flex items-center justify-center flex-shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-warning/10 text-warning
+                              flex items-center justify-center flex-shrink-0">
                 <PiggyBank className="w-6 h-6" />
               </div>
             </div>
             <div className="h-2 bg-content3 rounded-full overflow-hidden">
-              <div className="h-full bg-warning rounded-full transition-all duration-700"
-                style={{ width: `${Math.min(savedPct, 100)}%` }} />
+              <div
+                className={`h-full rounded-full transition-all duration-700
+                            ${netFlow >= 0 ? 'bg-warning' : 'bg-danger'}`}
+                style={{ width: `${Math.min(savedPct, 100)}%` }}
+              />
             </div>
           </div>
         </div>
@@ -237,7 +310,8 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-                <XAxis dataKey="date" tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="date" tick={{ fill: C.tick, fontSize: 11 }}
+                  axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: C.tick, fontSize: 11 }} axisLine={false} tickLine={false}
                   tickFormatter={v => `${(v / 1000).toFixed(0)}k`} width={36} />
                 <Tooltip contentStyle={tooltipStyle}
@@ -263,7 +337,7 @@ export default function DashboardPage() {
                       innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
                       {categoryData.map((e, idx) => <Cell key={idx} fill={e.color} />)}
                     </Pie>
-                    <Tooltip content={<ChartTooltip style={tooltipStyle}/>} />
+                    <Tooltip content={<ChartTooltip style={tooltipStyle} />} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="space-y-2 mt-3">
@@ -324,33 +398,44 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentTx.map((tx, idx) => (
-                    <tr key={tx.id}
-                      onClick={() => setSelectedTx(tx)}
-                      className="border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer"
-                      style={{
-                        animation: 'stagger-in 0.65s cubic-bezier(0.16,1,0.3,1) both',
-                        animationDelay: `${0.05 + idx * 0.07}s`,
-                      }}
-                    >
-                      <td className="py-3.5 pr-4 text-default-400 whitespace-nowrap text-xs">
-                        {formatDateUI(tx.transaction_date)}
-                      </td>
-                      <td className="py-3.5 pr-4">
-                        <span className="px-2.5 py-0.5 rounded-lg bg-content2 text-xs font-medium text-default-500">
-                          {tx.category?.name ?? '—'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 pr-4 font-medium text-foreground">
-                        {tx.merchant ?? tx.description ?? '—'}
-                      </td>
-                      <td className={`py-3.5 text-right font-semibold tabular-nums
-                                      ${tx.transaction_type === 'income' ? 'text-success' : 'text-danger'}`}>
-                        {tx.transaction_type === 'income' ? '+' : '-'}
-                        {Number(tx.amount).toLocaleString('ru-RU')} ₽
-                      </td>
-                    </tr>
-                  ))}
+                  {recentTx.map((tx, idx) => {
+                    const transfer = isInternalTransfer(tx);
+                    const amountColor = transfer
+                      ? 'text-primary'
+                      : tx.transaction_type === 'income' ? 'text-success' : 'text-danger';
+                    const amountPrefix = transfer
+                      ? '⇄ '
+                      : tx.transaction_type === 'income' ? '+' : '−';
+                    return (
+                      <tr key={tx.id}
+                        onClick={() => setSelectedTx(tx)}
+                        className="border-b border-divider/40 hover:bg-content2/50 transition-colors cursor-pointer"
+                        style={{
+                          animation: 'stagger-in 0.65s cubic-bezier(0.16,1,0.3,1) both',
+                          animationDelay: `${0.05 + idx * 0.07}s`,
+                        }}
+                      >
+                        <td className="py-3.5 pr-4 text-default-400 whitespace-nowrap text-xs">
+                          {formatDateUI(tx.transaction_date)}
+                        </td>
+                        <td className="py-3.5 pr-4">
+                          <span className={`px-2.5 py-0.5 rounded-lg text-xs font-medium
+                            ${transfer
+                              ? 'bg-primary/10 text-primary'
+                              : 'bg-content2 text-default-500'
+                            }`}>
+                            {tx.category?.name ?? '—'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 pr-4 font-medium text-foreground">
+                          {tx.merchant ?? tx.description ?? '—'}
+                        </td>
+                        <td className={`py-3.5 text-right font-semibold tabular-nums ${amountColor}`}>
+                          {amountPrefix}{Number(tx.amount).toLocaleString('ru-RU')} ₽
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -374,7 +459,7 @@ function MetricCard({ label, value, sub, icon, iconBg }: {
           {icon}
         </div>
       </div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
+      <p className="text-2xl font-bold text-foreground">{value} ₽</p>
       {sub && <p className="text-xs text-default-400 mt-1">{sub}</p>}
     </div>
   );
