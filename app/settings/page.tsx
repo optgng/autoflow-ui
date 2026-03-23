@@ -58,12 +58,12 @@ export default function SettingsPage() {
 
   // Заполняем форму данными пользователя
   useEffect(() => {
-    if (user) {
-      setName(user.username);
-      setEmail(user.email);
-      setFullName(user.full_name ?? '');
-    }
-  }, [user]);
+    apiClient.get("users/me").then(r => {
+      setName(r.data.username);
+      setEmail(r.data.email);
+      setFullName(r.data.full_name ?? "");
+    });
+  }, []);
 
 
   useEffect(() => {
