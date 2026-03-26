@@ -58,7 +58,7 @@ export default function SettingsPage() {
 
   // Заполняем форму данными пользователя
   useEffect(() => {
-    apiClient.get("users/me").then(r => {
+    apiClient.get("auth/me").then(r => {
       setName(r.data.username);
       setEmail(r.data.email);
       setFullName(r.data.full_name ?? "");

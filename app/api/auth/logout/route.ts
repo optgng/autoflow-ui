@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 export async function POST() {
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set("access_token", "", { maxAge: 0, httpOnly: true, path: "/" });
-  response.cookies.set("refresh_token", "", { maxAge: 0, httpOnly: true, path: "/" });
-  return response;
+  const cookieStore = await cookies();
+  cookieStore.set("access_token", "", { maxAge: 0, httpOnly: true, path: "/" });
+  cookieStore.set("refresh_token", "", { maxAge: 0, httpOnly: true, path: "/" });
+  return NextResponse.json({ ok: true });
 }

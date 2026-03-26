@@ -10,6 +10,7 @@ import {
   Moon,
   Sun,
   LogOut,
+  Target,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -23,6 +24,7 @@ const navItems = [
   { icon: Receipt, label: "Транзакции", href: "/transactions" },
   { icon: Building2, label: "Счета", href: "/accounts" },
   { icon: Settings, label: "Настройки", href: "/settings" },
+  { icon: Target, label: "Привычки", href: "/habits" },
 ];
 
 export default function Sidebar() {
@@ -55,7 +57,7 @@ export default function Sidebar() {
           </div>
           <div>
             <h1 className="text-xl font-bold gradient-text-primary">AutoFlow</h1>
-            <p className="text-xs text-default-500">Finance Dashboard</p>
+            <p className="text-xs text-default-500">Finances and Habits</p>
           </div>
         </div>
       </div>

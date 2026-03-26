@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
 
   const data = await res.json();
   const { tokens, user } = data;
+  const cookieStore = await cookies;
 
   const response = NextResponse.json({
     // SEC-05: only non-sensitive user fields sent to client
@@ -39,14 +40,14 @@ export async function POST(request: NextRequest) {
 
   // SEC-05: httpOnly cookies — not accessible from JS
   const isProd = process.env.NODE_ENV === "production";
-  response.cookies.set("access_token", tokens.access_token, {
+  cookieStore.set("access_token", tokens.access_token, {
     httpOnly: true,
     secure: isProd,
     sameSite: "strict",
     maxAge: 60 * 60 * 24, // 24h
     path: "/",
   });
-  response.cookies.set("refresh_token", tokens.refresh_token, {
+  cookieStore.set("refresh_token", tokens.refresh_token, {
     httpOnly: true,
     secure: isProd,
     sameSite: "strict",
@@ -54,5 +55,5 @@ export async function POST(request: NextRequest) {
     path: "/",
   });
 
-  return response;
+  return NextResponse.json({ user: { username, full_name, initials } });
 }

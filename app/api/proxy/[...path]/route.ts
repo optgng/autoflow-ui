@@ -7,11 +7,12 @@ import { cookies } from "next/headers";
 
 const BACKEND_URL = process.env.BACKEND_URL!;
 
-async function handler(request: NextRequest, { params }: { params: { path: string[] } }) {
-  const cookieStore = cookies();
+async function handler(request: NextRequest, context: { params: Promise<{ path: string []}>  }) {
+  const cookieStore = await cookies();
+  const { path } = await context.params;
   const accessToken = cookieStore.get("access_token")?.value;
 
-  const backendPath = params.path.join("/");
+  const backendPath = path.join("/");
   const url = new URL(request.url);
   const backendUrl = `${BACKEND_URL}/api/v1/${backendPath}${url.search}`;
 
@@ -40,4 +41,4 @@ async function handler(request: NextRequest, { params }: { params: { path: strin
   });
 }
 
-export { handler as GET, handler as POST, handler as PUT, handler as PATCH, handler as DELETE };
+export { handler as GET, handler as POST, handler as PUT, handler as PATCH, handler as DELETE, handler as OPTIONS };
