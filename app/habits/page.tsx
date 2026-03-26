@@ -1,4 +1,4 @@
-import HabitsView from "@/app/components/habits-view";
+import HabitsView from "@/components/habits-view";
 
 export const metadata = {
   title: "Трекер привычек | AutoFlow",

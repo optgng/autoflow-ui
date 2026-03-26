@@ -1,5 +1,5 @@
 # Структура и исходный код проекта
-Сгенерировано: Thu Mar 26 04:09:02 PM UTC 2026
+Сгенерировано: Thu Mar 26 09:02:21 PM UTC 2026
 
 <document path="./postcss.config.mjs">
 ```mjs
@@ -1819,16 +1819,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 <document path="./app/api/proxy/[...path]/route.ts">
 ```ts
-/**
- * SEC-08: Server-side proxy — hides real backend URL from browser.
- * Reads httpOnly access_token cookie and forwards requests to backend.
- */
+// app/api/proxy/[...path]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 const BACKEND_URL = process.env.BACKEND_URL!;
 
-async function handler(request: NextRequest, context: { params: Promise<{ path: string []}>  }) {
+async function handler(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> }
+) {
   const cookieStore = await cookies();
   const { path } = await context.params;
   const accessToken = cookieStore.get("access_token")?.value;
@@ -1840,29 +1840,63 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
+
   if (accessToken) {
     headers["Authorization"] = `Bearer ${accessToken}`;
   }
 
-  let body: string | undefined;
-  if (request.method !== "GET" && request.method !== "HEAD") {
+  // ИСПРАВЛЕНИЕ: Проверяем, нужно ли вообще извлекать и передавать body
+  let body: string | undefined = undefined;
+  const method = request.method.toUpperCase();
+  
+  // DELETE, GET, HEAD обычно не имеют тела. 
+  // Если мы попытаемся передать body в DELETE, Next.js fetch (undici) может упасть
+  if (method !== "GET" && method !== "HEAD" && method !== "DELETE") {
     body = await request.text();
   }
 
-  const res = await fetch(backendUrl, {
-    method: request.method,
-    headers,
-    body,
-  });
+  try {
+    // Формируем параметры запроса
+    const fetchOptions: RequestInit = {
+      method,
+      headers,
+    };
+    
+    if (body) {
+      fetchOptions.body = body;
+    }
 
-  const data = await res.text();
-  return new NextResponse(data, {
-    status: res.status,
-    headers: { "Content-Type": res.headers.get("Content-Type") ?? "application/json" },
-  });
+    const res = await fetch(backendUrl, fetchOptions);
+
+    // Если ответ 204 No Content, возвращаем пустой ответ
+    if (res.status === 204) {
+      return new NextResponse(null, { status: 204 });
+    }
+
+    const data = await res.text();
+    return new NextResponse(data, {
+      status: res.status,
+      headers: {
+        "Content-Type": res.headers.get("Content-Type") ?? "application/json",
+      },
+    });
+  } catch (error: any) {
+    console.error("Proxy fetch error:", error);
+    return new NextResponse(JSON.stringify({ detail: "Proxy error" }), { 
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
 }
 
-export { handler as GET, handler as POST, handler as PUT, handler as PATCH, handler as DELETE, handler as OPTIONS };
+export {
+  handler as GET,
+  handler as POST,
+  handler as PUT,
+  handler as PATCH,
+  handler as DELETE,
+  handler as OPTIONS,
+};
 ```
 </document>
 
@@ -1873,6 +1907,7 @@ export { handler as GET, handler as POST, handler as PUT, handler as PATCH, hand
  * Access token is NEVER sent to client JavaScript.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 const BACKEND_URL = process.env.BACKEND_URL; // server-side only, not NEXT_PUBLIC_
 
@@ -1892,7 +1927,7 @@ export async function POST(request: NextRequest) {
 
   const data = await res.json();
   const { tokens, user } = data;
-  const cookieStore = await cookies;
+  const cookieStore = await cookies();
 
   const response = NextResponse.json({
     // SEC-05: only non-sensitive user fields sent to client
@@ -1908,7 +1943,6 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  // SEC-05: httpOnly cookies — not accessible from JS
   const isProd = process.env.NODE_ENV === "production";
   cookieStore.set("access_token", tokens.access_token, {
     httpOnly: true,
@@ -1924,8 +1958,24 @@ export async function POST(request: NextRequest) {
     maxAge: 60 * 60 * 24 * 7, // 7d
     path: "/",
   });
+  
+  const username = user?.username || "User";
+  const full_name = user?.fullname || user?.full_name || username;
 
-  return NextResponse.json({ user: { username, full_name, initials } });
+  const initials = full_name
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+
+  return NextResponse.json({ 
+    user: { 
+      username, 
+      full_name,
+      initials
+    } 
+  });  
 }
 ```
 </document>
@@ -2676,6 +2726,31 @@ function MetricCard({ label, value, sub, icon, iconBg }: {
       </div>
       <p className="text-2xl font-bold text-foreground">{value} ₽</p>
       {sub && <p className="text-xs text-default-400 mt-1">{sub}</p>}
+    </div>
+  );
+}
+```
+</document>
+
+<document path="./app/habits/page.tsx">
+```tsx
+import HabitsView from "@/components/habits-view";
+
+export const metadata = {
+  title: "Трекер привычек | AutoFlow",
+  description: "Отслеживание полезных привычек",
+};
+
+export default function HabitsPage() {
+  return (
+    <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto w-full">
+      <div>
+        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500">
+          Трекер привычек
+        </h1>
+        <p className="text-muted-foreground mt-1">Формируйте полезные привычки шаг за шагом</p>
+      </div>
+      <HabitsView />
     </div>
   );
 }
@@ -4915,6 +4990,7 @@ import {
   Moon,
   Sun,
   LogOut,
+  Target,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -4928,6 +5004,7 @@ const navItems = [
   { icon: Receipt, label: "Транзакции", href: "/transactions" },
   { icon: Building2, label: "Счета", href: "/accounts" },
   { icon: Settings, label: "Настройки", href: "/settings" },
+  { icon: Target, label: "Привычки", href: "/habits" },
 ];
 
 export default function Sidebar() {
@@ -4960,7 +5037,7 @@ export default function Sidebar() {
           </div>
           <div>
             <h1 className="text-xl font-bold gradient-text-primary">AutoFlow</h1>
-            <p className="text-xs text-default-500">Finance Dashboard</p>
+            <p className="text-xs text-default-500">Finances and Habits</p>
           </div>
         </div>
       </div>
@@ -5036,6 +5113,312 @@ export default function Sidebar() {
     </aside>
   );
 }
+```
+</document>
+
+<document path="./components/habits-view.tsx">
+```tsx
+"use client";
+
+import { useState } from "react";
+import useSWR from "swr";
+import { Card, CardBody, Progress, Checkbox } from "@heroui/react";
+import { Target, Flame, Activity, Plus, Trash2, X } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { apiClient } from "@/lib/api"; // Убедитесь, что путь правильный
+import ModalPortal from "./ui/ModalPortal"; // Используем уже существующий в проекте портал для модалок
+
+// Интерфейсы данных
+interface HabitLog {
+  id: number;
+  date: string;
+  is_completed: boolean;
+}
+
+interface Habit {
+  id: number;
+  name: string;
+  description: string | null;
+  color: string;
+  icon: string;
+  frequency: string;
+  logs: HabitLog[];
+}
+
+// Fetcher для SWR
+const fetcher = (url: string) => apiClient.get(url).then((res) => res.data);
+
+export default function HabitsView() {
+  // Получаем данные через SWR
+  const { data: habits = [], mutate, isLoading } = useSWR<Habit[]>("/habits/", fetcher);
+
+  // Состояние модалки создания
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newHabitName, setNewHabitName] = useState("");
+  const [newHabitColor, setNewHabitColor] = useState("#3b82f6");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Получаем сегодняшнюю дату в формате YYYY-MM-DD для проверки выполнения
+  const today = new Date().toISOString().split("T")[0];
+
+  // Тоггл статуса привычки
+  const toggleHabit = async (habitId: number) => {
+    // Оптимистичное обновление UI
+    const updatedHabits = habits.map(h => {
+      if (h.id === habitId) {
+        const todayLogIndex = h.logs.findIndex(l => l.date === today);
+        let newLogs = [...h.logs];
+        if (todayLogIndex >= 0) {
+          newLogs[todayLogIndex].is_completed = !newLogs[todayLogIndex].is_completed;
+        } else {
+          newLogs.push({ id: Date.now(), date: today, is_completed: true });
+        }
+        return { ...h, logs: newLogs };
+      }
+      return h;
+    });
+    
+    // Мгновенно обновляем UI
+    mutate(updatedHabits, false);
+
+    // Фоновый запрос на сервер
+    try {
+      await apiClient.post(`/habits/${habitId}/toggle`, null, { params: { target_date: today } });
+      mutate(); // Синхронизируем с реальными данными сервера
+    } catch (error) {
+      console.error("Failed to toggle habit", error);
+      mutate(); // Откат при ошибке
+    }
+  };
+
+  // Создание привычки
+  const createHabit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHabitName.trim()) return;
+    
+    setIsSubmitting(true);
+    try {
+      await apiClient.post("/habits/", {
+        name: newHabitName,
+        color: newHabitColor,
+        frequency: "daily"
+      });
+      setNewHabitName("");
+      setIsModalOpen(false);
+      mutate(); // Обновляем список
+    } catch (error) {
+      console.error("Failed to create habit", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Удаление привычки (Используем метод DELETE, который нужно добавить в backend)
+  const deleteHabit = async (habitId: number) => {
+    if (!confirm("Удалить привычку?")) return;
+    try {
+      await apiClient.delete(`/habits/${habitId}`);
+      mutate(); // Обновляем список
+    } catch (error) {
+      console.error("Failed to delete habit", error);
+    }
+  };
+
+  // Аналитика (моковая для графика, так как нужно больше сложной логики для построения трендов)
+  const mockChartData = [
+    { date: "Пн", count: 2 }, { date: "Вт", count: 3 }, { date: "Ср", count: 1 },
+    { date: "Чт", count: 4 }, { date: "Пт", count: 2 }, { date: "Сб", count: 0 }, { date: "Вс", count: 5 },
+  ];
+
+  // Подсчет статистики
+  const totalHabits = habits.length;
+  const completedTodayCount = habits.filter(h => h.logs.find(l => l.date === today && l.is_completed)).length;
+  const todayProgress = totalHabits > 0 ? Math.round((completedTodayCount / totalHabits) * 100) : 0;
+
+  if (isLoading) {
+    return <div className="animate-pulse flex gap-4 h-32 mt-6"><div className="glass-card flex-1 rounded-2xl" /><div className="glass-card flex-1 rounded-2xl" /></div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Статистика */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <Card className="glass-card hover-lift card-hover-glow transition-all rounded-2xl border border-white/10 dark:border-white/10">
+          <CardBody className="p-5 flex flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center glow-primary">
+              <Target size={24} />
+            </div>
+            <div>
+              <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Всего привычек</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{totalHabits}</p>
+            </div>
+          </CardBody>
+        </Card>
+        
+        <Card className="glass-card hover-lift card-hover-glow transition-all rounded-2xl border border-white/10">
+          <CardBody className="p-5 flex flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-warning/10 text-warning flex items-center justify-center glow-sm">
+              <Flame size={24} />
+            </div>
+            <div>
+              <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Выполнено сегодня</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{completedTodayCount}</p>
+            </div>
+          </CardBody>
+        </Card>
+        
+        <Card className="glass-card hover-lift card-hover-glow transition-all rounded-2xl border border-white/10">
+          <CardBody className="p-5 flex flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-success/10 text-success flex items-center justify-center glow-success">
+              <Activity size={24} />
+            </div>
+            <div className="w-full">
+              <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Прогресс дня</p>
+              <div className="flex items-end gap-2 mt-1">
+                <p className="text-2xl font-bold text-foreground">{todayProgress}%</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      </div>
+
+      <div className="flex items-center justify-between mt-2">
+         <h2 className="text-lg font-semibold text-foreground">Мои привычки</h2>
+         <button 
+           onClick={() => setIsModalOpen(true)}
+           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl hover:opacity-90 transition-opacity text-sm font-medium shadow-glow"
+         >
+           <Plus size={16} /> Создать
+         </button>
+      </div>
+
+      {/* Сетка привычек */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {habits.length === 0 ? (
+          <p className="text-default-400 text-sm col-span-full py-8 text-center glass-card rounded-2xl border border-dashed border-divider">
+            Нет активных привычек. Создайте первую!
+          </p>
+        ) : (
+          habits.map((habit) => {
+            const isCompletedToday = habit.logs.some(l => l.date === today && l.is_completed);
+            
+            return (
+              <Card key={habit.id} className="glass-card hover-lift transition-all rounded-2xl overflow-hidden border border-white/10">
+                <CardBody className="flex flex-col gap-4 p-5">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm" 
+                        style={{ backgroundColor: habit.color }}
+                      >
+                        <Target size={20} />
+                      </div>
+                      <h3 className="font-semibold text-foreground">{habit.name}</h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => deleteHabit(habit.id)}
+                        className="p-1.5 text-default-400 hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      <Checkbox 
+                        isSelected={isCompletedToday} 
+                        onValueChange={() => toggleHabit(habit.id)}
+                        color="success"
+                        size="lg"
+                        className="p-0 m-0"
+                      />
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            )
+          })
+        )}
+      </div>
+
+      {/* Аналитика */}
+      <Card className="glass-card rounded-2xl mt-4 border border-white/10">
+        <CardBody className="p-6">
+          <h3 className="text-base font-semibold mb-6 text-foreground">Активность за 7 дней</h3>
+          <div className="h-[240px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={mockChartData} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
+                <XAxis dataKey="date" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} 
+                  contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: '12px' }} 
+                />
+                <Bar dataKey="count" fill="url(#colorBar)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <defs>
+                  <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9}/>
+                    <stop offset="100%" stopColor="#1644B8" stopOpacity={0.9}/>
+                  </linearGradient>
+                </defs>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Модальное окно создания */}
+      {isModalOpen && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 modal-overlay animate-overlay-in">
+            <div className="relative glass-modal rounded-2xl w-full max-w-sm p-6 animate-modal-content border border-white/10">
+              <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 p-1.5 rounded-lg text-default-400 hover:text-foreground hover:bg-white/5 transition-colors">
+                <X size={20} />
+              </button>
+              
+              <h2 className="text-xl font-bold mb-5 text-foreground">Новая привычка</h2>
+              
+              <form onSubmit={createHabit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-default-600">Название</label>
+                  <input 
+                    autoFocus
+                    value={newHabitName}
+                    onChange={(e) => setNewHabitName(e.target.value)}
+                    placeholder="Например: Читать 30 минут"
+                    className="input-field"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-default-600">Цвет карточки</label>
+                  <div className="flex gap-3">
+                    {['#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#f59e0b'].map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setNewHabitColor(c)}
+                        className={`w-8 h-8 rounded-full transition-transform ${newHabitColor === c ? 'scale-110 ring-2 ring-white/50' : 'opacity-70 hover:opacity-100'}`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting || !newHabitName.trim()}
+                  className="w-full h-11 mt-4 rounded-xl bg-gradient-to-r from-primary to-blue-600 text-white font-semibold flex items-center justify-center shadow-glow hover:opacity-90 disabled:opacity-50 transition-all"
+                >
+                  {isSubmitting ? "Создание..." : "Сохранить"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+    </div>
+  );
+}
+
 ```
 </document>
 

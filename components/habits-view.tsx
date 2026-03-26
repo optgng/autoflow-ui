@@ -1,114 +1,517 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardBody, Progress, Checkbox } from "@heroui/react";
-import { Target, Flame, Activity } from "lucide-react";
+import { useState, useRef } from "react";
+import useSWR from "swr";
+import { Card, CardBody } from "@heroui/react";
+import { Target, Flame, Activity, Plus, Trash2, X, RefreshCw } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { apiClient } from "@/lib/api";
+import ModalPortal from "./ui/ModalPortal";
+import { useAnimatedMount } from "@/lib/hooks/useAnimatedMount";
+import { useTheme } from 'next-themes'
+import { useDelayedSkeleton } from '@/lib/hooks/useDelayedSkeleton'
+import { ChartTooltip } from '@/components/ui/ChartTooltip'
 
-const mockHabits = [
-  { id: 1, name: "Чтение", icon: "book", color: "#8b5cf6", completedToday: false, weekProgress: 60 },
-  { id: 2, name: "Тренировка", icon: "dumbbell", color: "#ec4899", completedToday: true, weekProgress: 80 },
-];
+interface HabitLog {
+  id: number;
+  date: string;
+  is_completed: boolean;
+}
 
-const mockChartData = [
-  { date: "Пн", count: 2 }, { date: "Вт", count: 3 }, { date: "Ср", count: 1 },
-  { date: "Чт", count: 4 }, { date: "Пт", count: 2 }, { date: "Сб", count: 0 }, { date: "Вс", count: 5 },
-];
+interface Habit {
+  id: number;
+  name: string;
+  description: string | null;
+  color: string;
+  icon: string;
+  frequency: string;
+  current_streak: number;
+  logs: HabitLog[];
+}
+
+interface ActivityPoint { date: string; count: number }
+
+const fetcher = (url: string) => apiClient.get(url).then((res) => res.data);
 
 export default function HabitsView() {
-  const [habits, setHabits] = useState(mockHabits);
+  const { data: habits, mutate } = useSWR('/habits', fetcher, {
+    onSuccess: () => setIsInitialLoad(false),
+  })
 
-  const toggleHabit = (id: number) => {
-    // В реальности здесь будет вызов POST /api/v1/habits/{id}/toggle
-    setHabits(habits.map(h => h.id === id ? { ...h, completedToday: !h.completedToday } : h));
+  const { data: activityData, mutate: mutateActivity } = useSWR<ActivityPoint[]>(
+    "habits/activity/summary?days=7",
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme !== 'light'
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const showSkeleton = useDelayedSkeleton(!habits && isInitialLoad, 2000)
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newHabitName, setNewHabitName] = useState("");
+  const [newHabitColor, setNewHabitColor] = useState("#3b82f6");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [removingId, setRemovingId] = useState<number | null>(null);
+
+  const { mounted: deleteMounted, animating: deleteAnimating } = useAnimatedMount(deleteId !== null, 220);
+  
+  const deleteHabitRef = useRef<Habit | undefined>(undefined);
+  const deleteTarget = habits?.find((h) => h.id === deleteId);
+  if (deleteTarget) deleteHabitRef.current = deleteTarget;
+  const displayDeleteHabit = deleteHabitRef.current;
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const toggleHabit = async (habitId: number) => {
+    // 1. Определяем текущий статус ДО обновления
+    const currentHabit = habits?.find(h => h.id === habitId);
+    const wasCompleted = currentHabit?.logs.some(
+      l => l.date === today && l.is_completed
+    ) ?? false;
+    const willBeCompleted = !wasCompleted; // после тоггла
+
+    // Оптимистичное обновление списка привычек (без изменений)
+    const updatedHabits = habits?.map((h) => {
+      if (h.id !== habitId) return h;
+      const idx = h.logs.findIndex((l) => l.date === today);
+      const newLogs = [...h.logs];
+      if (idx >= 0) {
+	newLogs[idx] = { ...newLogs[idx], is_completed: willBeCompleted };
+      } else {
+	newLogs.push({ id: Date.now(), date: today, is_completed: true });
+      }
+      return { ...h, logs: newLogs };
+    });
+    mutate(updatedHabits, false);
+
+    // 2. Оптимистичное обновление графика — с реальными данными, а не пустым fetch
+    const optimisticActivity = activityData?.map(d => {
+      if (d.date !== today) return d;
+      return {
+	...d,
+	count: willBeCompleted
+	  ? d.count + 1
+	  : Math.max(0, d.count - 1), // не уходим в минус
+      };
+    });
+    mutateActivity(optimisticActivity, false); // передаём данные, не просто триггерим fetch
+
+    try {
+      await apiClient.post(`/habits/${habitId}/toggle`, null, {
+	params: { target_date: today },
+      });
+      mutate();
+      mutateActivity(); // 3. синхронизируем с сервером ПОСЛЕ запроса
+    } catch (error) {
+      console.error('Failed to toggle habit', error);
+      mutate();
+      mutateActivity(); // откат и для графика тоже
+    }
   };
+  
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setIsDeleting(true);
+    try {
+      await apiClient.delete(`habits/${deleteId}`);
+      mutate(habits?.filter((h) => h.id !== deleteId), false);
+      setDeleteId(null);
+    } catch (err) {
+      console.error("Failed to delete habit", err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteId) return;
+    setRemovingId(deleteId);
+    await new Promise((r) => setTimeout(r, 280));
+    await handleDelete();
+    setRemovingId(null);
+  };
+
+  const createHabit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHabitName.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await apiClient.post("/habits/", {
+        name: newHabitName,
+        color: newHabitColor,
+        frequency: "daily",
+      });
+      setNewHabitName("");
+      setIsModalOpen(false);
+      mutate();
+    } catch (error) {
+      console.error("Failed to create habit", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const chartData =
+    activityData?.map((d) => ({
+      date: new Date(d.date + "T00:00:00").toLocaleDateString("ru-RU", { weekday: "short" }),
+      fullDate: new Date(d.date + "T00:00:00").toLocaleDateString("ru-RU", {
+	weekday: "long", day: "numeric", month: "short"  // "четверг, 27 мар"
+      }),
+      count: d.count,
+    })) ?? Array.from({ length: 7 }, () => ({ date: "—", fullDate: "—", count: 0 }))
+  
+  const totalHabits = habits?.length ?? 0;
+  const completedTodayCount =
+    habits?.filter((h) => h.logs.some((l) => l.date === today && l.is_completed)).length ?? 0;
+  const todayProgress =
+    totalHabits > 0 ? Math.round((completedTodayCount / totalHabits) * 100) : 0;
+
+  const tooltipStyle = {
+    background: isDark ? '#111113' : '#FAF7F2',
+    border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(180,155,120,0.3)'}`,
+    borderRadius: 12,
+    fontSize: 12,
+    color: isDark ? '#fff' : '#1A1510',
+  }
+
+  function HabitSkeleton() {
+    return (
+      <div className="glass-card rounded-2xl p-5 border border-white/10">
+	<div className="flex justify-between items-start mb-4">
+	  <div className="flex items-center gap-3">
+	    <div className="w-10 h-10 rounded-xl shimmer" />
+	    <div className="h-4 shimmer rounded w-28" />
+	  </div>
+	  <div className="w-7 h-7 shimmer rounded-lg" />
+	</div>
+	<div className="h-2 shimmer rounded-full w-full mt-2" />
+	<div className="h-3 shimmer rounded w-20 mt-3" />
+      </div>
+    )
+  }
+
+  const CustomBarTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null
+    const fullDate = payload[0]?.payload?.fullDate
+    const count = payload[0]?.value ?? 0
+    return (
+      <div
+	style={tooltipStyle}
+	className="px-3.5 py-2.5 rounded-xl shadow-lg pointer-events-none"
+      >
+	<p className="text-xs mb-1.5" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)' }}>
+	  {fullDate}
+	</p>
+	<div className="flex items-center gap-2">
+	  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3b82f6' }} />
+	  <span className="text-sm font-semibold">
+	    Выполнено: {count}
+	  </span>
+	</div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
       {/* Статистика */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="glass-card">
-          <CardBody className="flex flex-row items-center gap-4">
-            <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500"><Target size={24} /></div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <Card className="glass-card hover-lift card-hover-glow transition-all rounded-2xl border border-white/10">
+          <CardBody className="p-5 flex flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <Target size={24} />
+            </div>
             <div>
-              <p className="text-sm text-muted-foreground">Всего привычек</p>
-              <p className="text-2xl font-semibold">{habits.length}</p>
+              <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Всего привычек</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{totalHabits}</p>
             </div>
           </CardBody>
         </Card>
-        <Card className="glass-card">
-          <CardBody className="flex flex-row items-center gap-4">
-            <div className="p-3 bg-orange-500/10 rounded-xl text-orange-500"><Flame size={24} /></div>
+
+        <Card className="glass-card hover-lift card-hover-glow transition-all rounded-2xl border border-white/10">
+          <CardBody className="p-5 flex flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-warning/10 text-warning flex items-center justify-center">
+              <Flame size={24} />
+            </div>
             <div>
-              <p className="text-sm text-muted-foreground">Текущий стрик</p>
-              <p className="text-2xl font-semibold">5 дней</p>
+              <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Выполнено сегодня</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{completedTodayCount}</p>
             </div>
           </CardBody>
         </Card>
-        <Card className="glass-card">
-          <CardBody className="flex flex-row items-center gap-4">
-            <div className="p-3 bg-green-500/10 rounded-xl text-green-500"><Activity size={24} /></div>
+
+        <Card className="glass-card hover-lift card-hover-glow transition-all rounded-2xl border border-white/10">
+          <CardBody className="p-5 flex flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-success/10 text-success flex items-center justify-center">
+              <Activity size={24} />
+            </div>
             <div>
-              <p className="text-sm text-muted-foreground">Выполнение за неделю</p>
-              <p className="text-2xl font-semibold">70%</p>
+              <p className="text-xs text-default-500 font-medium uppercase tracking-wide">Прогресс дня</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{todayProgress}%</p>
             </div>
           </CardBody>
         </Card>
+      </div>
+
+      <div className="flex items-center justify-between mt-2">
+        <h2 className="text-lg font-semibold text-foreground">Мои привычки</h2>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl hover:opacity-90 transition-opacity text-sm font-medium shadow-glow"
+        >
+          <Plus size={16} /> Создать
+        </button>
       </div>
 
       {/* Сетка привычек */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {habits.map((habit) => (
-          <Card key={habit.id} className="glass-card transition-all hover:-translate-y-1">
-            <CardBody className="flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: habit.color }}>
-                    <Target size={20} />
-                  </div>
-                  <h3 className="font-medium text-lg">{habit.name}</h3>
-                </div>
-                <Checkbox
-                  isSelected={habit.completedToday}
-                  onValueChange={() => toggleHabit(habit.id)}
-                  color="success"
-                  size="lg"
-                />
-              </div>
-              <div>
-                <div className="flex justify-between text-xs mb-1 text-muted-foreground">
-                  <span>Прогресс недели</span>
-                  <span>{habit.weekProgress}%</span>
-                </div>
-                <Progress value={habit.weekProgress} color="primary" className="h-2" />
-              </div>
-            </CardBody>
-          </Card>
-        ))}
-      </div>
+      {isInitialLoad ? (
+	showSkeleton ? (
+	  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+	    {Array(3).fill(0).map((_, i) => <HabitSkeleton key={i} />)}
+	  </div>
+	) : null
+      ) : (
+	<div
+	  key="habits-loaded"
+	  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+	>
+	  {habits?.length === 0 ? (
+	    <p className="text-default-400 text-sm col-span-full py-8 text-center glass-card rounded-2xl border border-dashed border-divider">
+	      Привычек нет. Добавь первую!
+	    </p>
+	  ) : (
+	  habits?.map((habit, idx) => {
+	    const isCompletedToday = habit.logs.some(l => l.date === today && l.is_completed)
+	    const last7 = Array.from({ length: 7 }, (_, i) => {
+	      const d = new Date()
+	      d.setDate(d.getDate() - (6 - i))
+	      const dateStr = d.toISOString().split('T')[0]
+	      return habit.logs.some(l => l.date === dateStr && l.is_completed)
+	    })
 
-      {/* Аналитика */}
-      <Card className="glass-card mt-4">
-        <CardBody>
-          <h3 className="text-lg font-medium mb-4">Активность за 7 дней</h3>
-          <div className="h-64 w-full">
+	    return (
+	      <Card
+		key={habit.id}
+		className={`glass-card hover-lift transition-all rounded-2xl overflow-hidden border border-white/10 stagger-container ${
+		  removingId === habit.id ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100'
+		}`}
+		style={{
+		  animationDelay: `${idx * 0.07}s`,
+		  transition: 'opacity 0.28s ease, transform 0.28s ease',
+		}}
+	      >
+		{/* Цветовой акцент сверху */}
+		<div className="h-1 w-full" style={{ backgroundColor: habit.color }} />
+
+		<CardBody className="p-5">
+		  {/* Заголовок + кнопка удаления */}
+		  <div className="flex items-start justify-between mb-4">
+		    <div className="flex items-center gap-3 min-w-0">
+		      <div
+			className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white"
+			style={{ backgroundColor: habit.color + '22', border: `1px solid ${habit.color}44` }}
+		      >
+			<Target size={18} style={{ color: habit.color }} />
+		      </div>
+		      <div className="min-w-0">
+			<p className="font-semibold text-foreground truncate">{habit.name}</p>
+			{habit.description && (
+			  <p className="text-xs text-default-400 mt-0.5 truncate">{habit.description}</p>
+			)}
+		      </div>
+		    </div>
+		    <button
+		      onClick={() => setDeleteId(habit.id)}
+		      className="p-1.5 rounded-lg text-default-300 hover:text-danger hover:bg-danger/10 transition-colors flex-shrink-0 ml-2"
+		    >
+		      <Trash2 size={15} />
+		    </button>
+		  </div>
+
+		  {/* Стрейк */}
+		  <div className="flex items-center gap-1.5 mb-4">
+		    <Flame size={14} className={habit.current_streak > 0 ? 'text-warning' : 'text-default-300'} />
+		    <span className={`text-xs font-medium ${habit.current_streak > 0 ? 'text-warning' : 'text-default-400'}`}>
+		      {habit.current_streak} дн. стрейк
+		    </span>
+		  </div>
+
+		  {/* Последние 7 дней */}
+		  <div className="flex gap-1.5 mb-4">
+		    {last7.map((done, i) => (
+		      <div
+			key={i}
+			className="flex-1 h-1.5 rounded-full transition-all"
+			style={{ backgroundColor: done ? habit.color : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)') }}
+		      />
+		    ))}
+		  </div>
+
+		  {/* Кнопка выполнения */}
+		  <button
+		    onClick={() => toggleHabit(habit.id)}
+		    className={`w-full h-9 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+		      isCompletedToday
+			? 'bg-success/15 text-success border border-success/30 hover:bg-success/25'
+			: 'bg-content2 text-default-500 border border-divider hover:bg-content3 hover:text-foreground'
+		    }`}
+		  >
+		    {isCompletedToday ? '✓ Выполнено' : 'Отметить'}
+		  </button>
+		</CardBody>
+	      </Card>
+	    )
+	  })
+	)}	  
+	</div>
+      )}
+      {/* График активности */}
+      <Card className="glass-card rounded-2xl mt-4 border border-white/10">
+        <CardBody className="p-6">
+          <h3 className="text-base font-semibold mb-6 text-foreground">Активность за 7 дней</h3>
+          <div className="h-[240px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockChartData}>
-                <XAxis dataKey="date" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                <Tooltip cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }} contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                <Bar dataKey="count" fill="url(#colorUv)" radius={[4, 4, 0, 0]} />
+              <BarChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
                 <defs>
-                  <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                  <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#1644B8" stopOpacity={0.9} />
                   </linearGradient>
                 </defs>
+                <XAxis dataKey="date" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip
+		  content={<CustomBarTooltip/>}
+		  cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }}
+		/>
+		<Bar dataKey="count" fill="url(#colorBar)" radius={[4, 4, 0, 0]} maxBarSize={80} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </CardBody>
       </Card>
+
+      {/* Модал создания привычки */}
+      {isModalOpen && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 modal-overlay animate-overlay-in">
+            <div className="relative glass-modal rounded-2xl w-full max-w-sm p-6 animate-modal-content border border-white/10">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-lg text-default-400 hover:text-foreground hover:bg-white/5 transition-colors"
+              >
+                <X size={20} />
+              </button>
+              <h2 className="text-xl font-bold mb-5 text-foreground">Новая привычка</h2>
+              <form onSubmit={createHabit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-default-600">Название</label>
+                  <input
+                    autoFocus
+                    value={newHabitName}
+                    onChange={(e) => setNewHabitName(e.target.value)}
+                    placeholder="Например: Читать 30 минут"
+                    className="input-field"
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-default-600">Цвет карточки</label>
+                  <div className="flex gap-3">
+                    {["#3b82f6", "#ec4899", "#8b5cf6", "#10b981", "#f59e0b"].map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setNewHabitColor(c)}
+                        className={`w-8 h-8 rounded-full transition-transform ${newHabitColor === c
+                          ? "scale-110 ring-2 ring-white/50"
+                          : "opacity-70 hover:opacity-100"
+                          }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !newHabitName.trim()}
+                  className="w-full h-11 mt-4 rounded-xl bg-gradient-to-r from-primary to-blue-600 text-white font-semibold flex items-center justify-center gap-2 shadow-glow hover:opacity-90 disabled:opacity-50 transition-all"
+                >
+                  {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Сохранить"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* Модал удаления привычки */}
+      {deleteMounted && displayDeleteHabit && (
+        <ModalPortal>
+          <div
+            className={`fixed inset-0 z-[100] flex items-center justify-center px-4 modal-overlay ${deleteAnimating ? "animate-overlay-in" : "animate-overlay-out"
+              }`}
+            onClick={() => setDeleteId(null)}
+          >
+            <div
+              className={`relative glass-modal rounded-2xl p-6 w-full max-w-sm space-y-4 ${deleteAnimating ? "animate-modal-content" : "animate-modal-out"
+                }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-foreground">Удалить привычку?</h2>
+                <button
+                  onClick={() => setDeleteId(null)}
+                  className="text-default-400 hover:text-foreground p-1 rounded-lg hover:bg-white/5 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-content2">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0"
+                  style={{ backgroundColor: displayDeleteHabit.color }}
+                >
+                  <Target size={16} />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">{displayDeleteHabit.name}</p>
+                  <p className="text-xs text-default-400 mt-0.5">
+                    Стрейк: {displayDeleteHabit.current_streak} дн. · вся история будет удалена
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-sm text-default-400">
+                Все логи и история выполнения будут удалены безвозвратно.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteId(null)}
+                  className="flex-1 h-10 rounded-xl bg-content2 hover:bg-content3 transition-colors text-sm font-medium"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="flex-1 h-10 rounded-xl bg-danger hover:bg-danger/80 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {isDeleting && <RefreshCw className="w-4 h-4 animate-spin" />}
+                  Удалить
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
     </div>
   );
 }
