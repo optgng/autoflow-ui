@@ -3,14 +3,13 @@
 import { useState, useRef } from "react";
 import useSWR from "swr";
 import { Card, CardBody } from "@heroui/react";
-import { Target, Flame, Activity, Plus, Trash2, X, RefreshCw } from "lucide-react";
+import { Target, Flame, Activity, Plus, Trash2, X, RefreshCw, Zap } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { apiClient } from "@/lib/api";
 import ModalPortal from "./ui/ModalPortal";
 import { useAnimatedMount } from "@/lib/hooks/useAnimatedMount";
-import { useTheme } from 'next-themes'
-import { useDelayedSkeleton } from '@/lib/hooks/useDelayedSkeleton'
-import { ChartTooltip } from '@/components/ui/ChartTooltip'
+import { useTheme } from 'next-themes';
+import { useDelayedSkeleton } from '@/lib/hooks/useDelayedSkeleton';
 
 interface HabitLog {
   id: number;
@@ -26,6 +25,7 @@ interface Habit {
   icon: string;
   frequency: string;
   current_streak: number;
+  habit_strength: number;   // <-- новое поле
   logs: HabitLog[];
 }
 
@@ -36,19 +36,19 @@ const fetcher = (url: string) => apiClient.get(url).then((res) => res.data);
 export default function HabitsView() {
   const { data: habits, mutate } = useSWR('/habits', fetcher, {
     onSuccess: () => setIsInitialLoad(false),
-  })
+  });
 
   const { data: activityData, mutate: mutateActivity } = useSWR<ActivityPoint[]>(
     "habits/activity/summary?days=7",
     fetcher,
     { revalidateOnFocus: false }
   );
-  
-  const { resolvedTheme } = useTheme()
-  const isDark = resolvedTheme !== 'light'
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
-  const showSkeleton = useDelayedSkeleton(!habits && isInitialLoad, 2000)
-  
+
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== 'light';
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const showSkeleton = useDelayedSkeleton(!habits && isInitialLoad, 2000);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newHabitName, setNewHabitName] = useState("");
   const [newHabitColor, setNewHabitColor] = useState("#3b82f6");
@@ -59,67 +59,71 @@ export default function HabitsView() {
   const [removingId, setRemovingId] = useState<number | null>(null);
 
   const { mounted: deleteMounted, animating: deleteAnimating } = useAnimatedMount(deleteId !== null, 220);
-  
+
   const deleteHabitRef = useRef<Habit | undefined>(undefined);
-  const deleteTarget = habits?.find((h) => h.id === deleteId);
+  const deleteTarget = habits?.find((h: Habit) => h.id === deleteId);
   if (deleteTarget) deleteHabitRef.current = deleteTarget;
   const displayDeleteHabit = deleteHabitRef.current;
 
   const today = new Date().toISOString().split("T")[0];
 
   const toggleHabit = async (habitId: number) => {
-    // 1. Определяем текущий статус ДО обновления
-    const currentHabit = habits?.find(h => h.id === habitId);
+    const currentHabit = habits?.find((h: Habit) => h.id === habitId);
     const wasCompleted = currentHabit?.logs.some(
-      l => l.date === today && l.is_completed
+      (l: HabitLog) => l.date === today && l.is_completed
     ) ?? false;
-    const willBeCompleted = !wasCompleted; // после тоггла
+    const willBeCompleted = !wasCompleted;
 
-    // Оптимистичное обновление списка привычек (без изменений)
-    const updatedHabits = habits?.map((h) => {
+    // Оптимистичное обновление — strength пересчитаем после ответа сервера
+    const updatedHabits = habits?.map((h: Habit) => {
       if (h.id !== habitId) return h;
-      const idx = h.logs.findIndex((l) => l.date === today);
+      const idx = h.logs.findIndex((l: HabitLog) => l.date === today);
       const newLogs = [...h.logs];
       if (idx >= 0) {
-	newLogs[idx] = { ...newLogs[idx], is_completed: willBeCompleted };
+        newLogs[idx] = { ...newLogs[idx], is_completed: willBeCompleted };
       } else {
-	newLogs.push({ id: Date.now(), date: today, is_completed: true });
+        newLogs.push({ id: Date.now(), date: today, is_completed: true });
       }
       return { ...h, logs: newLogs };
     });
     mutate(updatedHabits, false);
 
-    // 2. Оптимистичное обновление графика — с реальными данными, а не пустым fetch
-    const optimisticActivity = activityData?.map(d => {
+    const optimisticActivity = activityData?.map((d: ActivityPoint) => {
       if (d.date !== today) return d;
       return {
-	...d,
-	count: willBeCompleted
-	  ? d.count + 1
-	  : Math.max(0, d.count - 1), // не уходим в минус
+        ...d,
+        count: willBeCompleted ? d.count + 1 : Math.max(0, d.count - 1),
       };
     });
-    mutateActivity(optimisticActivity, false); // передаём данные, не просто триггерим fetch
+    mutateActivity(optimisticActivity, false);
 
     try {
-      await apiClient.post(`/habits/${habitId}/toggle`, null, {
-	params: { target_date: today },
+      const resp = await apiClient.post(`/habits/${habitId}/toggle`, null, {
+        params: { target_date: today },
       });
+      // Обновляем habit_strength из ответа сервера
+      const { current_streak, habit_strength } = resp.data;
+      mutate(
+        habits?.map((h: Habit) =>
+          h.id === habitId ? { ...h, current_streak, habit_strength } : h
+        ),
+        false
+      );
       mutate();
-      mutateActivity(); // 3. синхронизируем с сервером ПОСЛЕ запроса
+      mutateActivity();
     } catch (error) {
       console.error('Failed to toggle habit', error);
       mutate();
-      mutateActivity(); // откат и для графика тоже
+      mutateActivity();
     }
   };
-  
+
   const handleDelete = async () => {
     if (!deleteId) return;
     setIsDeleting(true);
     try {
       await apiClient.delete(`habits/${deleteId}`);
-      mutate(habits?.filter((h) => h.id !== deleteId), false);
+      mutate(habits?.filter((h: Habit) => h.id !== deleteId), false);
       setDeleteId(null);
     } catch (err) {
       console.error("Failed to delete habit", err);
@@ -157,17 +161,17 @@ export default function HabitsView() {
   };
 
   const chartData =
-    activityData?.map((d) => ({
+    activityData?.map((d: ActivityPoint) => ({
       date: new Date(d.date + "T00:00:00").toLocaleDateString("ru-RU", { weekday: "short" }),
       fullDate: new Date(d.date + "T00:00:00").toLocaleDateString("ru-RU", {
-	weekday: "long", day: "numeric", month: "short"  // "четверг, 27 мар"
+        weekday: "long", day: "numeric", month: "short",
       }),
       count: d.count,
-    })) ?? Array.from({ length: 7 }, () => ({ date: "—", fullDate: "—", count: 0 }))
-  
+    })) ?? Array.from({ length: 7 }, () => ({ date: "—", fullDate: "—", count: 0 }));
+
   const totalHabits = habits?.length ?? 0;
   const completedTodayCount =
-    habits?.filter((h) => h.logs.some((l) => l.date === today && l.is_completed)).length ?? 0;
+    habits?.filter((h: Habit) => h.logs.some((l: HabitLog) => l.date === today && l.is_completed)).length ?? 0;
   const todayProgress =
     totalHabits > 0 ? Math.round((completedTodayCount / totalHabits) * 100) : 0;
 
@@ -177,45 +181,46 @@ export default function HabitsView() {
     borderRadius: 12,
     fontSize: 12,
     color: isDark ? '#fff' : '#1A1510',
-  }
+  };
 
   function HabitSkeleton() {
     return (
       <div className="glass-card rounded-2xl p-5 border border-white/10">
-	<div className="flex justify-between items-start mb-4">
-	  <div className="flex items-center gap-3">
-	    <div className="w-10 h-10 rounded-xl shimmer" />
-	    <div className="h-4 shimmer rounded w-28" />
-	  </div>
-	  <div className="w-7 h-7 shimmer rounded-lg" />
-	</div>
-	<div className="h-2 shimmer rounded-full w-full mt-2" />
-	<div className="h-3 shimmer rounded w-20 mt-3" />
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl shimmer" />
+            <div className="h-4 shimmer rounded w-28" />
+          </div>
+          <div className="w-7 h-7 shimmer rounded-lg" />
+        </div>
+        <div className="h-2 shimmer rounded-full w-full mt-2" />
+        <div className="h-3 shimmer rounded w-20 mt-3" />
+        {/* Скелетон для прогресс-бара силы */}
+        <div className="h-2 shimmer rounded-full w-full mt-3" />
+        <div className="h-3 shimmer rounded w-24 mt-1.5" />
       </div>
-    )
+    );
   }
 
   const CustomBarTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null
-    const fullDate = payload[0]?.payload?.fullDate
-    const count = payload[0]?.value ?? 0
+    if (!active || !payload?.length) return null;
+    const fullDate = payload[0]?.payload?.fullDate;
+    const count = payload[0]?.value ?? 0;
     return (
       <div
-	style={tooltipStyle}
-	className="px-3.5 py-2.5 rounded-xl shadow-lg pointer-events-none"
+        style={tooltipStyle}
+        className="px-3.5 py-2.5 rounded-xl shadow-lg pointer-events-none"
       >
-	<p className="text-xs mb-1.5" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)' }}>
-	  {fullDate}
-	</p>
-	<div className="flex items-center gap-2">
-	  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3b82f6' }} />
-	  <span className="text-sm font-semibold">
-	    Выполнено: {count}
-	  </span>
-	</div>
+        <p className="text-xs mb-1.5" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)' }}>
+          {fullDate}
+        </p>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3b82f6' }} />
+          <span className="text-sm font-semibold">Выполнено: {count}</span>
+        </div>
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -270,106 +275,171 @@ export default function HabitsView() {
 
       {/* Сетка привычек */}
       {isInitialLoad ? (
-	showSkeleton ? (
-	  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-	    {Array(3).fill(0).map((_, i) => <HabitSkeleton key={i} />)}
-	  </div>
-	) : null
+        showSkeleton ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {Array(3).fill(0).map((_, i) => <HabitSkeleton key={i} />)}
+          </div>
+        ) : null
       ) : (
-	<div
-	  key="habits-loaded"
-	  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
-	>
-	  {habits?.length === 0 ? (
-	    <p className="text-default-400 text-sm col-span-full py-8 text-center glass-card rounded-2xl border border-dashed border-divider">
-	      Привычек нет. Добавь первую!
-	    </p>
-	  ) : (
-	  habits?.map((habit, idx) => {
-	    const isCompletedToday = habit.logs.some(l => l.date === today && l.is_completed)
-	    const last7 = Array.from({ length: 7 }, (_, i) => {
-	      const d = new Date()
-	      d.setDate(d.getDate() - (6 - i))
-	      const dateStr = d.toISOString().split('T')[0]
-	      return habit.logs.some(l => l.date === dateStr && l.is_completed)
-	    })
+        <div
+          key="habits-loaded"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+        >
+          {habits?.length === 0 ? (
+            <p className="text-default-400 text-sm col-span-full py-8 text-center glass-card rounded-2xl border border-dashed border-divider">
+              Привычек нет. Добавь первую!
+            </p>
+          ) : (
+            habits?.map((habit: Habit, idx: number) => {
+              const isCompletedToday = habit.logs.some(
+                (l: HabitLog) => l.date === today && l.is_completed
+              );
+              const last7 = Array.from({ length: 7 }, (_, i) => {
+                const d = new Date();
+                d.setDate(d.getDate() - (6 - i));
+                const dateStr = d.toISOString().split('T')[0];
+                return habit.logs.some((l: HabitLog) => l.date === dateStr && l.is_completed);
+              });
 
-	    return (
-	      <Card
-		key={habit.id}
-		className={`glass-card hover-lift transition-all rounded-2xl overflow-hidden border border-white/10 stagger-container ${
-		  removingId === habit.id ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100'
-		}`}
-		style={{
-		  animationDelay: `${idx * 0.07}s`,
-		  transition: 'opacity 0.28s ease, transform 0.28s ease',
-		}}
-	      >
-		{/* Цветовой акцент сверху */}
-		<div className="h-1 w-full" style={{ backgroundColor: habit.color }} />
+              const strength = habit.habit_strength ?? 0;
+              // Цвет прогресс-бара: используем habit.color
+              const strengthLabel =
+                strength >= 75 ? 'Сильная' :
+                strength >= 40 ? 'Формируется' :
+                'Слабая';
 
-		<CardBody className="p-5">
-		  {/* Заголовок + кнопка удаления */}
-		  <div className="flex items-start justify-between mb-4">
-		    <div className="flex items-center gap-3 min-w-0">
-		      <div
-			className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white"
-			style={{ backgroundColor: habit.color + '22', border: `1px solid ${habit.color}44` }}
-		      >
-			<Target size={18} style={{ color: habit.color }} />
-		      </div>
-		      <div className="min-w-0">
-			<p className="font-semibold text-foreground truncate">{habit.name}</p>
-			{habit.description && (
-			  <p className="text-xs text-default-400 mt-0.5 truncate">{habit.description}</p>
-			)}
-		      </div>
-		    </div>
-		    <button
-		      onClick={() => setDeleteId(habit.id)}
-		      className="p-1.5 rounded-lg text-default-300 hover:text-danger hover:bg-danger/10 transition-colors flex-shrink-0 ml-2"
-		    >
-		      <Trash2 size={15} />
-		    </button>
-		  </div>
+              return (
+                <Card
+                  key={habit.id}
+                  className={`glass-card hover-lift transition-all rounded-2xl overflow-hidden border border-white/10 stagger-container ${
+                    removingId === habit.id ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100'
+                  }`}
+                  style={{
+                    animationDelay: `${idx * 0.07}s`,
+                    transition: 'opacity 0.28s ease, transform 0.28s ease',
+                  }}
+                >
+                  {/* Цветовой акцент сверху */}
+                  <div className="h-1 w-full" style={{ backgroundColor: habit.color }} />
 
-		  {/* Стрейк */}
-		  <div className="flex items-center gap-1.5 mb-4">
-		    <Flame size={14} className={habit.current_streak > 0 ? 'text-warning' : 'text-default-300'} />
-		    <span className={`text-xs font-medium ${habit.current_streak > 0 ? 'text-warning' : 'text-default-400'}`}>
-		      {habit.current_streak} дн. стрейк
-		    </span>
-		  </div>
+                  <CardBody className="p-5">
+                    {/* Заголовок + кнопка удаления */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white"
+                          style={{
+                            backgroundColor: habit.color + '22',
+                            border: `1px solid ${habit.color}44`,
+                          }}
+                        >
+                          <Target size={18} style={{ color: habit.color }} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground truncate">{habit.name}</p>
+                          {habit.description && (
+                            <p className="text-xs text-default-400 mt-0.5 truncate">{habit.description}</p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setDeleteId(habit.id)}
+                        className="p-1.5 rounded-lg text-default-300 hover:text-danger hover:bg-danger/10 transition-colors flex-shrink-0 ml-2"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
 
-		  {/* Последние 7 дней */}
-		  <div className="flex gap-1.5 mb-4">
-		    {last7.map((done, i) => (
-		      <div
-			key={i}
-			className="flex-1 h-1.5 rounded-full transition-all"
-			style={{ backgroundColor: done ? habit.color : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)') }}
-		      />
-		    ))}
-		  </div>
+                    {/* Стрейк */}
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <Flame
+                        size={14}
+                        className={habit.current_streak > 0 ? 'text-warning' : 'text-default-300'}
+                      />
+                      <span className={`text-xs font-medium ${habit.current_streak > 0 ? 'text-warning' : 'text-default-400'}`}>
+                        {habit.current_streak} дн. стрейк
+                      </span>
+                    </div>
 
-		  {/* Кнопка выполнения */}
-		  <button
-		    onClick={() => toggleHabit(habit.id)}
-		    className={`w-full h-9 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-		      isCompletedToday
-			? 'bg-success/15 text-success border border-success/30 hover:bg-success/25'
-			: 'bg-content2 text-default-500 border border-divider hover:bg-content3 hover:text-foreground'
-		    }`}
-		  >
-		    {isCompletedToday ? '✓ Выполнено' : 'Отметить'}
-		  </button>
-		</CardBody>
-	      </Card>
-	    )
-	  })
-	)}	  
-	</div>
+                    {/* ── Сила привычки ── */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1">
+                          <Zap
+                            size={12}
+                            style={{ color: habit.color }}
+                            className="flex-shrink-0"
+                          />
+                          <span className="text-xs text-default-500 font-medium">
+                            Сила привычки
+                          </span>
+                        </div>
+                        <span
+                          className="text-xs font-semibold"
+                          style={{ color: habit.color }}
+                        >
+                          {strength.toFixed(0)}%
+                          <span className="text-default-400 font-normal ml-1">
+                            · {strengthLabel}
+                          </span>
+                        </span>
+                      </div>
+                      {/* Трек прогресс-бара */}
+                      <div
+                        className="w-full h-1.5 rounded-full overflow-hidden"
+                        style={{
+                          backgroundColor: isDark
+                            ? 'rgba(255,255,255,0.08)'
+                            : 'rgba(0,0,0,0.07)',
+                        }}
+                      >
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${strength}%`,
+                            backgroundColor: habit.color,
+                            boxShadow: `0 0 6px ${habit.color}66`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Последние 7 дней */}
+                    <div className="flex gap-1.5 mb-4">
+                      {last7.map((done, i) => (
+                        <div
+                          key={i}
+                          className="flex-1 h-1.5 rounded-full transition-all"
+                          style={{
+                            backgroundColor: done
+                              ? habit.color
+                              : isDark
+                              ? 'rgba(255,255,255,0.08)'
+                              : 'rgba(0,0,0,0.08)',
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Кнопка выполнения */}
+                    <button
+                      onClick={() => toggleHabit(habit.id)}
+                      className={`w-full h-9 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                        isCompletedToday
+                          ? 'bg-success/15 text-success border border-success/30 hover:bg-success/25'
+                          : 'bg-content2 text-default-500 border border-divider hover:bg-content3 hover:text-foreground'
+                      }`}
+                    >
+                      {isCompletedToday ? '✓ Выполнено' : 'Отметить'}
+                    </button>
+                  </CardBody>
+                </Card>
+              );
+            })
+          )}
+        </div>
       )}
+
       {/* График активности */}
       <Card className="glass-card rounded-2xl mt-4 border border-white/10">
         <CardBody className="p-6">
@@ -383,13 +453,25 @@ export default function HabitsView() {
                     <stop offset="100%" stopColor="#1644B8" stopOpacity={0.9} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                <XAxis
+                  dataKey="date"
+                  stroke="#888888"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#888888"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
                 <Tooltip
-		  content={<CustomBarTooltip/>}
-		  cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }}
-		/>
-		<Bar dataKey="count" fill="url(#colorBar)" radius={[4, 4, 0, 0]} maxBarSize={80} />
+                  content={<CustomBarTooltip />}
+                  cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }}
+                />
+                <Bar dataKey="count" fill="url(#colorBar)" radius={[4, 4, 0, 0]} maxBarSize={80} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -428,10 +510,11 @@ export default function HabitsView() {
                         key={c}
                         type="button"
                         onClick={() => setNewHabitColor(c)}
-                        className={`w-8 h-8 rounded-full transition-transform ${newHabitColor === c
-                          ? "scale-110 ring-2 ring-white/50"
-                          : "opacity-70 hover:opacity-100"
-                          }`}
+                        className={`w-8 h-8 rounded-full transition-transform ${
+                          newHabitColor === c
+                            ? "scale-110 ring-2 ring-white/50"
+                            : "opacity-70 hover:opacity-100"
+                        }`}
                         style={{ backgroundColor: c }}
                       />
                     ))}
@@ -454,13 +537,15 @@ export default function HabitsView() {
       {deleteMounted && displayDeleteHabit && (
         <ModalPortal>
           <div
-            className={`fixed inset-0 z-[100] flex items-center justify-center px-4 modal-overlay ${deleteAnimating ? "animate-overlay-in" : "animate-overlay-out"
-              }`}
+            className={`fixed inset-0 z-[100] flex items-center justify-center px-4 modal-overlay ${
+              deleteAnimating ? "animate-overlay-in" : "animate-overlay-out"
+            }`}
             onClick={() => setDeleteId(null)}
           >
             <div
-              className={`relative glass-modal rounded-2xl p-6 w-full max-w-sm space-y-4 ${deleteAnimating ? "animate-modal-content" : "animate-modal-out"
-                }`}
+              className={`relative glass-modal rounded-2xl p-6 w-full max-w-sm space-y-4 ${
+                deleteAnimating ? "animate-modal-content" : "animate-modal-out"
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between">
