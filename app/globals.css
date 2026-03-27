@@ -76,22 +76,22 @@
 
   /* ─── Glass Dropdown ─── */
   .glass-dropdown {
-    background: rgba(16, 16, 20, 0.88);
-    backdrop-filter: blur(28px) saturate(200%);
-    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    background: rgba(12, 12, 16, 0.96);
+    backdrop-filter: blur(32px) saturate(200%);
+    -webkit-backdrop-filter: blur(32px) saturate(200%);
     border: 1px solid rgba(255, 255, 255, 0.10);
     box-shadow:
-      0 20px 60px rgba(0, 0, 0, 0.55),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      0 24px 64px rgba(0, 0, 0, 0.70),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
   }
 
   html.light .glass-dropdown {
-    background: rgba(248, 244, 237, 0.92);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border: 1px solid rgba(180, 155, 120, 0.25);
+    background: rgba(245, 241, 234, 0.97);
+    backdrop-filter: blur(32px) saturate(180%);
+    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    border: 1px solid rgba(180, 155, 120, 0.30);
     box-shadow:
-      0 20px 60px rgba(100, 80, 50, 0.18),
+      0 24px 64px rgba(80, 60, 30, 0.28),
       inset 0 1px 0 rgba(255, 255, 255, 0.95);
   }
 
@@ -422,8 +422,15 @@
   }
 
   @keyframes tooltip-in {
-    from { opacity: 0; transform: scale(0.92) translateY(6px); }
-    to   { opacity: 1; transform: scale(1)    translateY(0);   }
+    from {
+      opacity: 0;
+      transform: scale(0.92) translateY(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
 
   .recharts-tooltip-wrapper {

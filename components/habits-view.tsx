@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { Card, CardBody } from "@heroui/react";
 import {
   Target, Flame, Activity, Plus, Trash2, X, RefreshCw, Zap, ChevronDown, Pencil, Eye,
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { apiClient } from "@/lib/api";
 import ModalPortal from "./ui/ModalPortal";
+import GlassDatePicker from "./ui/GlassDatePicker";
 import { useAnimatedMount } from "@/lib/hooks/useAnimatedMount";
 import { useTheme } from "next-themes";
 import { useDelayedSkeleton } from "@/lib/hooks/useDelayedSkeleton";
@@ -46,29 +49,29 @@ interface ActivityPoint { date: string; count: number }
 const COLORS = ["#3b82f6", "#ec4899", "#8b5cf6", "#10b981", "#f59e0b"];
 
 const TIME_OF_DAY_OPTIONS: { value: "morning" | "afternoon" | "evening"; label: string }[] = [
-  { value: "morning",   label: "🌅 Утро"    },
-  { value: "afternoon", label: "☀️ День"    },
-  { value: "evening",   label: "🌙 Вечер"   },
+  { value: "morning", label: "🌅 Утро" },
+  { value: "afternoon", label: "☀️ День" },
+  { value: "evening", label: "🌙 Вечер" },
 ];
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
 const FREQUENCY_OPTIONS = [
-  { value: "daily",    label: "Ежедневно"       },
-  { value: "weekly",   label: "По дням недели"  },
-  { value: "monthly",  label: "Ежемесячно"      },
-  { value: "interval", label: "Интервал"        },
+  { value: "daily", label: "Ежедневно" },
+  { value: "weekly", label: "По дням недели" },
+  { value: "monthly", label: "Ежемесячно" },
+  { value: "interval", label: "Интервал (дней)" },
 ];
 
 const END_CONDITION_LABELS: Record<string, string> = {
-  never:   "Никогда",
+  never: "Никогда",
   by_date: "До даты",
   after_n: "После N выполнений",
 };
 
 const CHART_PRESETS = [
-  { label: "3 дня",   days: 3  },
-  { label: "7 дней",  days: 7  },
+  { label: "3 дня", days: 3 },
+  { label: "7 дней", days: 7 },
   { label: "14 дней", days: 14 },
   { label: "30 дней", days: 30 },
 ];
@@ -82,41 +85,63 @@ const fetcher = (url: string) => apiClient.get(url).then((r) => r.data);
 export default function HabitsView() {
   const todayISO = new Date().toISOString().split("T")[0];
 
-  const { data: habits, mutate } = useSWR("/habits", fetcher, {
+  // ── SWR ──────────────────────────────────────────────────────
+  const { data: habits, mutate } = useSWR("/habits/", fetcher, {
     onSuccess: () => setIsInitialLoad(false),
   });
 
+  // ── Chart state ───────────────────────────────────────────────
   const [chartDays, setChartDays] = useState(7);
-  const [chartCustomDate, setChartCustomDate] = useState("");
-  const chartQuery = chartCustomDate
-    ? `habits/activity/summary?days=30&from=${chartCustomDate}`
+  const [chartDateFrom, setChartDateFrom] = useState("");
+  const [chartDateTo, setChartDateTo] = useState("");
+
+  const isCustomRange = !!(chartDateFrom && chartDateTo);
+  const chartQuery = isCustomRange
+    ? `habits/activity/summary?date_from=${chartDateFrom}&date_to=${chartDateTo}`
     : `habits/activity/summary?days=${chartDays}`;
+
   const { data: activityData, mutate: mutateActivity } = useSWR<ActivityPoint[]>(
     chartQuery, fetcher, { revalidateOnFocus: false }
   );
 
+  // ── Theme / skeleton ──────────────────────────────────────────
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== "light";
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const showSkeleton = useDelayedSkeleton(!habits && isInitialLoad, 2000);
 
-  /* ── create modal state ── */
-  const [isModalOpen, setIsModalOpen]     = useState(false);
-  const [newHabitName, setNewHabitName]   = useState("");
-  const [newHabitColor, setNewHabitColor] = useState(COLORS[0]);
-  const [isSubmitting, setIsSubmitting]   = useState(false);
-  const [habitType, setHabitType]         = useState<"good" | "bad">("good");
-  const [timeOfDay, setTimeOfDay]         = useState<("morning" | "afternoon" | "evening")[]>([]);
-  const [frequency, setFrequency]         = useState("daily");
-  const [repeatDays, setRepeatDays]       = useState<number[]>([]);
-  const [intervalFrom, setIntervalFrom]   = useState("");
-  const [intervalTo, setIntervalTo]       = useState("");
-  const [startDate, setStartDate]         = useState(todayISO);
-  const [endCondition, setEndCondition]   = useState<"never" | "by_date" | "after_n">("never");
-  const [endDate, setEndDate]             = useState("");
-  const [endCount, setEndCount]           = useState<number>(30);
+  // ── Стабилизация порядка карточек ─────────────────────────────
+  const habitOrderRef = useRef<number[]>([]);
+  const stableHabits = useMemo(() => {
+    if (!habits) return [];
+    if (habitOrderRef.current.length === 0) {
+      habitOrderRef.current = habits.map((h: Habit) => h.id);
+    }
+    const orderMap = new Map<number, number>(
+      habitOrderRef.current.map((id: number, i: number) => [id, i])
+    );
+    return [...habits].sort(
+      (a: Habit, b: Habit) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999)
+    );
+  }, [habits]);
 
-  /* ── frequency custom dropdown ── */
+  // ── Create modal state ────────────────────────────────────────
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newHabitName, setNewHabitName] = useState("");
+  const [newHabitDesc, setNewHabitDesc] = useState("");
+  const [newHabitColor, setNewHabitColor] = useState(COLORS[0]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [habitType, setHabitType] = useState<"good" | "bad">("good");
+  const [timeOfDay, setTimeOfDay] = useState<("morning" | "afternoon" | "evening")[]>([]);
+  const [frequency, setFrequency] = useState("daily");
+  const [repeatDays, setRepeatDays] = useState<number[]>([]);
+  const [intervalDays, setIntervalDays] = useState<number>(7); // кол-во дней для interval
+  const [startDate, setStartDate] = useState(todayISO);
+  const [endCondition, setEndCondition] = useState<"never" | "by_date" | "after_n">("never");
+  const [endDate, setEndDate] = useState("");
+  const [endCount, setEndCount] = useState<number>(30);
+
+  // ── Frequency dropdown (create) ───────────────────────────────
   const [freqOpen, setFreqOpen] = useState(false);
   const freqRef = useRef<HTMLDivElement>(null);
   const { mounted: freqMounted, animating: freqAnimating } = useAnimatedMount(freqOpen, 160);
@@ -128,7 +153,7 @@ export default function HabitsView() {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  /* ── end-condition custom dropdown ── */
+  // ── End-condition dropdown (create) ──────────────────────────
   const [endCondOpen, setEndCondOpen] = useState(false);
   const endCondRef = useRef<HTMLDivElement>(null);
   const { mounted: endCondMounted, animating: endCondAnimating } = useAnimatedMount(endCondOpen, 160);
@@ -140,25 +165,25 @@ export default function HabitsView() {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  /* ── delete state ── */
-  const [deleteId, setDeleteId]     = useState<number | null>(null);
+  // ── Delete state ──────────────────────────────────────────────
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const { mounted: deleteMounted, animating: deleteAnimating } = useAnimatedMount(deleteId !== null, 220);
   const deleteHabitRef = useRef<Habit | undefined>(undefined);
-  const deleteTarget   = habits?.find((h: Habit) => h.id === deleteId);
+  const deleteTarget = habits?.find((h: Habit) => h.id === deleteId);
   if (deleteTarget) deleteHabitRef.current = deleteTarget;
   const displayDeleteHabit = deleteHabitRef.current;
 
-  /* ── view/edit state ── */
-  const [viewHabit, setViewHabit]   = useState<Habit | null>(null);
-  const [isEditing, setIsEditing]   = useState(false);
-  const [editData, setEditData]     = useState<Partial<Habit>>({});
-  const [isSaving, setIsSaving]     = useState(false);
+  // ── View/edit state ───────────────────────────────────────────
+  const [viewHabit, setViewHabit] = useState<Habit | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState<Partial<Habit>>({});
+  const [isSaving, setIsSaving] = useState(false);
   const { mounted: viewMounted, animating: viewAnimating } = useAnimatedMount(viewHabit !== null, 280);
 
-  /* ── edit dropdown states ── */
-  const [editFreqOpen, setEditFreqOpen]         = useState(false);
+  // ── Edit frequency dropdown ───────────────────────────────────
+  const [editFreqOpen, setEditFreqOpen] = useState(false);
   const editFreqRef = useRef<HTMLDivElement>(null);
   const { mounted: editFreqMounted, animating: editFreqAnimating } = useAnimatedMount(editFreqOpen, 160);
   useEffect(() => {
@@ -171,34 +196,28 @@ export default function HabitsView() {
 
   /* ─────────────────────────── helpers ──────────────────────── */
   const resetModal = () => {
-    setNewHabitName(""); setNewHabitColor(COLORS[0]);
+    setNewHabitName(""); setNewHabitDesc(""); setNewHabitColor(COLORS[0]);
     setHabitType("good"); setTimeOfDay([]); setFrequency("daily"); setRepeatDays([]);
-    setIntervalFrom(""); setIntervalTo("");
+    setIntervalDays(7);
     setStartDate(todayISO); setEndCondition("never"); setEndDate(""); setEndCount(30);
   };
 
   const toggleTimeOfDay = (val: "morning" | "afternoon" | "evening") => {
-    setTimeOfDay((prev) =>
-      prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]
-    );
+    setTimeOfDay(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
   };
 
   const toggleRepeatDay = (idx: number) => {
-    setRepeatDays((prev) =>
-      prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx]
-    );
+    setRepeatDays(prev => prev.includes(idx) ? prev.filter(d => d !== idx) : [...prev, idx]);
   };
 
   /* ─────────────────────────── metrics ──────────────────────── */
-  const goodHabits = habits?.filter((h: Habit) => h.habit_type !== "bad") ?? [];
-  const badHabits  = habits?.filter((h: Habit) => h.habit_type === "bad")  ?? [];
-  const totalHabits = (habits?.length ?? 0);
+  const goodHabits = stableHabits.filter((h: Habit) => h.habit_type !== "bad");
+  const badHabits = stableHabits.filter((h: Habit) => h.habit_type === "bad");
+  const totalHabits = stableHabits.length;
 
-  // Хорошая: выполнено = лог есть и is_completed
   const goodCompletedToday = goodHabits.filter((h: Habit) =>
     h.logs.some((l: HabitLog) => l.date === todayISO && l.is_completed)
   ).length;
-  // Плохая: «устоял» = лога сегодня НЕТ
   const badHeldToday = badHabits.filter((h: Habit) =>
     !h.logs.some((l: HabitLog) => l.date === todayISO && l.is_completed)
   ).length;
@@ -209,8 +228,8 @@ export default function HabitsView() {
 
   /* ─────────────────────────── actions ──────────────────────── */
   const toggleHabit = async (habitId: number) => {
-    const currentHabit  = habits?.find((h: Habit) => h.id === habitId);
-    const wasCompleted  = currentHabit?.logs.some(
+    const currentHabit = stableHabits.find((h: Habit) => h.id === habitId);
+    const wasCompleted = currentHabit?.logs.some(
       (l: HabitLog) => l.date === todayISO && l.is_completed
     ) ?? false;
     const willBeCompleted = !wasCompleted;
@@ -218,7 +237,7 @@ export default function HabitsView() {
 
     const updatedHabits = habits?.map((h: Habit) => {
       if (h.id !== habitId) return h;
-      const idx     = h.logs.findIndex((l: HabitLog) => l.date === todayISO);
+      const idx = h.logs.findIndex((l: HabitLog) => l.date === todayISO);
       const newLogs = [...h.logs];
       if (idx >= 0) {
         newLogs[idx] = { ...newLogs[idx], is_completed: willBeCompleted };
@@ -229,10 +248,7 @@ export default function HabitsView() {
     });
     mutate(updatedHabits, false);
 
-    // Для плохой привычки «сорвался» — засчитываем в чарт как -1 (она уже была в норме)
-    // Для хорошей — +1 при выполнении, -1 при отмене
     const delta = willBeCompleted ? 1 : -1;
-    // Плохие: «сорвался» — добавляет метку, норма — убирает
     const chartDelta = isBad ? (willBeCompleted ? -1 : 1) : delta;
     const optimisticActivity = activityData?.map((d: ActivityPoint) => {
       if (d.date !== todayISO) return d;
@@ -260,26 +276,23 @@ export default function HabitsView() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteId) return;
+    setRemovingId(deleteId);
+    await new Promise(r => setTimeout(r, 280));
     setIsDeleting(true);
     try {
       await apiClient.delete(`habits/${deleteId}`);
       mutate(habits?.filter((h: Habit) => h.id !== deleteId), false);
+      // Убираем из стабильного порядка
+      habitOrderRef.current = habitOrderRef.current.filter(id => id !== deleteId);
       setDeleteId(null);
     } catch (err) {
       console.error("Failed to delete habit", err);
     } finally {
       setIsDeleting(false);
+      setRemovingId(null);
     }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteId) return;
-    setRemovingId(deleteId);
-    await new Promise((r) => setTimeout(r, 280));
-    await handleDelete();
-    setRemovingId(null);
   };
 
   const createHabit = async (e: React.FormEvent) => {
@@ -288,20 +301,26 @@ export default function HabitsView() {
     setIsSubmitting(true);
     try {
       await apiClient.post("/habits/", {
-        name:            newHabitName,
-        color:           newHabitColor,
+        name: newHabitName,
+        description: newHabitDesc || null,
+        color: newHabitColor,
         frequency,
-        habit_type:      habitType,
-        time_of_day:     timeOfDay.length > 0   ? timeOfDay   : null,
-        repeat_days:     frequency === "weekly" ? repeatDays  : null,
-        interval_start:  frequency === "interval" ? intervalFrom || null : null,
-        interval_end:    frequency === "interval" ? intervalTo   || null : null,
-        start_date:      startDate   || null,
-        end_date:        endCondition === "by_date" ? endDate   || null : null,
-        end_after_count: endCondition === "after_n" ? endCount            : null,
+        habit_type: habitType,
+        time_of_day: timeOfDay.length > 0 ? timeOfDay : null,
+        repeat_days: frequency === "weekly" ? repeatDays : null,
+        // interval: кол-во дней → передаём как interval_start=today, interval_end=today+N
+        interval_start: frequency === "interval" ? todayISO : null,
+        interval_end: frequency === "interval"
+          ? new Date(Date.now() + intervalDays * 86400000).toISOString().split("T")[0]
+          : null,
+        start_date: startDate || null,
+        end_date: endCondition === "by_date" ? endDate || null : null,
+        end_after_count: endCondition === "after_n" ? endCount : null,
       });
       resetModal();
       setIsModalOpen(false);
+      // Сбросить порядок, чтобы новая привычка встала в конец
+      habitOrderRef.current = [];
       mutate();
     } catch (error) {
       console.error("Failed to create habit", error);
@@ -320,7 +339,8 @@ export default function HabitsView() {
     if (!viewHabit) return;
     setIsSaving(true);
     try {
-      const resp = await apiClient.put(`/habits/${viewHabit.id}`, editData);
+      // PATCH, не PUT
+      const resp = await apiClient.patch(`/habits/${viewHabit.id}`, editData);
       mutate(
         habits?.map((h: Habit) => h.id === viewHabit.id ? { ...h, ...resp.data } : h),
         false
@@ -336,9 +356,13 @@ export default function HabitsView() {
   };
 
   /* ─────────────────────────── chart ────────────────────────── */
+  const xAxisInterval = chartDays >= 30 ? 4 : chartDays >= 14 ? 1 : 0;
+
   const chartData =
     activityData?.map((d: ActivityPoint) => ({
-      date: new Date(d.date + "T00:00:00").toLocaleDateString("ru-RU", { weekday: "short", day: "numeric" }),
+      date: new Date(d.date + "T00:00:00").toLocaleDateString("ru-RU", {
+        weekday: "short", day: "numeric",
+      }),
       fullDate: new Date(d.date + "T00:00:00").toLocaleDateString("ru-RU", {
         weekday: "long", day: "numeric", month: "short",
       }),
@@ -346,11 +370,11 @@ export default function HabitsView() {
     })) ?? Array.from({ length: chartDays || 7 }, () => ({ date: "—", fullDate: "—", count: 0 }));
 
   const tooltipStyle = {
-    background:   isDark ? "#111113" : "#FAF7F2",
-    border:       `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(180,155,120,0.3)"}`,
+    background: isDark ? "#111113" : "#FAF7F2",
+    border: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(180,155,120,0.3)"}`,
     borderRadius: 12,
-    fontSize:     12,
-    color:        isDark ? "#fff" : "#1A1510",
+    fontSize: 12,
+    color: isDark ? "#fff" : "#1A1510",
   };
 
   /* ─────────────────────────── sub-components ───────────────── */
@@ -375,7 +399,7 @@ export default function HabitsView() {
   const CustomBarTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
     const fullDate = payload[0]?.payload?.fullDate;
-    const count    = payload[0]?.value ?? 0;
+    const count = payload[0]?.value ?? 0;
     return (
       <div style={tooltipStyle} className="px-3.5 py-2.5 rounded-xl shadow-lg pointer-events-none">
         <p className="text-xs mb-1.5" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)" }}>
@@ -395,7 +419,7 @@ export default function HabitsView() {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Статистика */}
+      {/* ─── Статистика ─── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <Card className="glass-card hover-lift card-hover-glow transition-all rounded-2xl border border-white/10">
           <CardBody className="p-5 flex flex-row items-center gap-4">
@@ -434,6 +458,7 @@ export default function HabitsView() {
         </Card>
       </div>
 
+      {/* ─── Заголовок + кнопка ─── */}
       <div className="flex items-center justify-between mt-2">
         <h2 className="text-lg font-semibold text-foreground">Мои привычки</h2>
         <button
@@ -444,7 +469,7 @@ export default function HabitsView() {
         </button>
       </div>
 
-      {/* Сетка привычек */}
+      {/* ─── Сетка привычек ─── */}
       {isInitialLoad ? (
         showSkeleton ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -452,13 +477,13 @@ export default function HabitsView() {
           </div>
         ) : null
       ) : (
-        <div key="habits-loaded" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {habits?.length === 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {stableHabits.length === 0 ? (
             <p className="text-default-400 text-sm col-span-full py-8 text-center glass-card rounded-2xl border border-dashed border-divider">
               Привычек нет. Добавь первую!
             </p>
           ) : (
-            habits?.map((habit: Habit, idx: number) => {
+            stableHabits.map((habit: Habit, idx: number) => {
               const isCompletedToday = habit.logs.some(
                 (l: HabitLog) => l.date === todayISO && l.is_completed
               );
@@ -469,24 +494,22 @@ export default function HabitsView() {
                 return habit.logs.some((l: HabitLog) => l.date === dateStr && l.is_completed);
               });
 
-              const strength      = habit.habit_strength ?? 0;
+              const strength = habit.habit_strength ?? 0;
               const strengthLabel =
                 strength >= 75 ? "Сильная" :
-                strength >= 40 ? "Формируется" : "Слабая";
+                  strength >= 40 ? "Формируется" : "Слабая";
 
-              const isBad       = habit.habit_type === "bad";
-              // Плохая «в норме» = лога нет сегодня; «сорвался» = лог есть
+              const isBad = habit.habit_type === "bad";
               const isSuccessToday = isBad ? !isCompletedToday : isCompletedToday;
-              const toggleLabel   = isCompletedToday
+              const toggleLabel = isCompletedToday
                 ? (isBad ? "✗ Сорвался" : "✓ Выполнено")
-                : (isBad ? "Устоять"    : "Отметить");
+                : (isBad ? "Устоять" : "Отметить");
 
               return (
                 <Card
                   key={habit.id}
-                  className={`glass-card hover-lift transition-all rounded-2xl overflow-hidden border border-white/10 stagger-container ${
-                    removingId === habit.id ? "opacity-0 scale-95 pointer-events-none" : "opacity-100"
-                  }`}
+                  className={`glass-card hover-lift transition-all rounded-2xl overflow-hidden border border-white/10 stagger-container ${removingId === habit.id ? "opacity-0 scale-95 pointer-events-none" : "opacity-100"
+                    }`}
                   style={{ animationDelay: `${idx * 0.07}s`, transition: "opacity 0.28s ease, transform 0.28s ease" }}
                 >
                   <div className="h-1 w-full" style={{ backgroundColor: habit.color }} />
@@ -568,25 +591,24 @@ export default function HabitsView() {
                         <div
                           key={i}
                           className="flex-1 h-1.5 rounded-full transition-all"
-                          style={{ backgroundColor: done
-                            ? (isBad ? "#ef4444" : habit.color)
-                            : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)") }}
+                          style={{
+                            backgroundColor: done
+                              ? (isBad ? "#ef4444" : habit.color)
+                              : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"),
+                          }}
                         />
                       ))}
                     </div>
 
-                    {/* Кнопка */}
+                    {/* Кнопка toggle */}
                     <button
                       onClick={() => toggleHabit(habit.id)}
-                      className={`w-full h-9 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-                        isSuccessToday
-                          ? isBad
-                            ? "bg-success/15 text-success border border-success/30 hover:bg-success/25"
-                            : "bg-success/15 text-success border border-success/30 hover:bg-success/25"
+                      className={`w-full h-9 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${isSuccessToday
+                          ? "bg-success/15 text-success border border-success/30 hover:bg-success/25"
                           : isCompletedToday && isBad
                             ? "bg-danger/15 text-danger border border-danger/30 hover:bg-danger/25"
                             : "bg-content2 text-default-500 border border-divider hover:bg-content3 hover:text-foreground"
-                      }`}
+                        }`}
                     >
                       {toggleLabel}
                     </button>
@@ -601,40 +623,68 @@ export default function HabitsView() {
       {/* ═══ ГРАФИК ═══ */}
       <Card className="glass-card rounded-2xl mt-4 border border-white/10">
         <CardBody className="p-6">
+          {/* Контролы чарта */}
           <div className="flex flex-wrap items-center gap-2 mb-5">
             <h3 className="text-base font-semibold text-foreground mr-auto">Активность</h3>
+
+            {/* Пресеты */}
             {CHART_PRESETS.map(({ label, days }) => (
               <button
                 key={days}
                 type="button"
-                onClick={() => { setChartDays(days); setChartCustomDate(""); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                  chartDays === days && !chartCustomDate
+                onClick={() => { setChartDays(days); setChartDateFrom(""); setChartDateTo(""); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${chartDays === days && !isCustomRange
                     ? "border-primary/50 bg-primary/15 text-primary"
                     : "border-divider bg-content2 text-default-400 hover:text-foreground hover:border-default-400"
-                }`}
+                  }`}
               >
                 {label}
               </button>
             ))}
-            <input
-              type="date"
-              value={chartCustomDate}
-              max={todayISO}
-              onChange={e => { setChartCustomDate(e.target.value); setChartDays(0); }}
-              className="input-field h-8 w-36 text-xs"
-            />
+
+            {/* Разделитель */}
+            <div className="h-6 w-px bg-divider mx-1 hidden sm:block" />
+
+            {/* Custom range — два GlassDatePicker */}
+            <div className="flex items-center gap-2">
+              <div className="w-36">
+                <GlassDatePicker
+                  value={chartDateFrom}
+                  onChange={v => { setChartDateFrom(v); if (v) setChartDays(0); }}
+                  placeholder="От"
+                  max={chartDateTo || todayISO}
+                />
+              </div>
+              <span className="text-default-400 text-xs flex-shrink-0">—</span>
+              <div className="w-36">
+                <GlassDatePicker
+                  value={chartDateTo}
+                  onChange={v => { setChartDateTo(v); if (v) setChartDays(0); }}
+                  placeholder="До"
+                  min={chartDateFrom || undefined}
+                  max={todayISO}
+                />
+              </div>
+            </div>
           </div>
+
           <div className="h-[240px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
                 <defs>
                   <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor="#3b82f6" stopOpacity={0.9} />
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9} />
                     <stop offset="100%" stopColor="#1644B8" stopOpacity={0.9} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                <XAxis
+                  dataKey="date"
+                  stroke="#888888"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={xAxisInterval}
+                />
                 <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip
                   content={<CustomBarTooltip />}
@@ -667,15 +717,13 @@ export default function HabitsView() {
                   <label className="text-sm font-medium text-default-600">Тип</label>
                   <div className="flex gap-2 p-1 rounded-xl bg-content2">
                     <button type="button" onClick={() => setHabitType("good")}
-                      className={`flex-1 h-9 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
-                        habitType === "good" ? "bg-success/20 text-success shadow-sm" : "text-default-400 hover:text-foreground"
-                      }`}>
+                      className={`flex-1 h-9 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${habitType === "good" ? "bg-success/20 text-success shadow-sm" : "text-default-400 hover:text-foreground"
+                        }`}>
                       💪 Хорошая
                     </button>
                     <button type="button" onClick={() => setHabitType("bad")}
-                      className={`flex-1 h-9 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
-                        habitType === "bad" ? "bg-danger/20 text-danger shadow-sm" : "text-default-400 hover:text-foreground"
-                      }`}>
+                      className={`flex-1 h-9 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${habitType === "bad" ? "bg-danger/20 text-danger shadow-sm" : "text-default-400 hover:text-foreground"
+                        }`}>
                       ❌ Плохая
                     </button>
                   </div>
@@ -687,9 +735,28 @@ export default function HabitsView() {
                 {/* Название */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-default-600">Название</label>
-                  <input autoFocus value={newHabitName} onChange={e => setNewHabitName(e.target.value)}
+                  <input
+                    autoFocus
+                    value={newHabitName}
+                    onChange={e => setNewHabitName(e.target.value)}
                     placeholder={habitType === "good" ? "Например: Читать 30 минут" : "Например: Сладкое"}
-                    className="input-field" required />
+                    className="input-field"
+                    required
+                  />
+                </div>
+
+                {/* Описание */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-default-600">
+                    Описание
+                    <span className="text-default-400 font-normal ml-1">(необязательно)</span>
+                  </label>
+                  <input
+                    value={newHabitDesc}
+                    onChange={e => setNewHabitDesc(e.target.value)}
+                    placeholder="Краткое описание привычки"
+                    className="input-field"
+                  />
                 </div>
 
                 {/* Цвет */}
@@ -698,9 +765,8 @@ export default function HabitsView() {
                   <div className="flex gap-3">
                     {COLORS.map(c => (
                       <button key={c} type="button" onClick={() => setNewHabitColor(c)}
-                        className={`w-8 h-8 rounded-full transition-transform ${
-                          newHabitColor === c ? "scale-110 ring-2 ring-white/50" : "opacity-70 hover:opacity-100"
-                        }`}
+                        className={`w-8 h-8 rounded-full transition-transform ${newHabitColor === c ? "scale-110 ring-2 ring-white/50" : "opacity-70 hover:opacity-100"
+                          }`}
                         style={{ backgroundColor: c }} />
                     ))}
                   </div>
@@ -714,11 +780,10 @@ export default function HabitsView() {
                       const active = timeOfDay.includes(value);
                       return (
                         <button key={value} type="button" onClick={() => toggleTimeOfDay(value)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
-                            active
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${active
                               ? "border-primary/50 bg-primary/15 text-primary"
                               : "border-divider bg-content2 text-default-400 hover:text-foreground hover:border-default-400"
-                          }`}>
+                            }`}>
                           {label}
                         </button>
                       );
@@ -726,7 +791,7 @@ export default function HabitsView() {
                   </div>
                 </div>
 
-                {/* Повторение — кастомный dropdown */}
+                {/* Повторение */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-default-600">Повторение</label>
                   <div ref={freqRef} className="relative">
@@ -736,15 +801,13 @@ export default function HabitsView() {
                       <ChevronDown size={16} className={`text-default-400 transition-transform duration-300 flex-shrink-0 ${freqOpen ? "rotate-180" : ""}`} />
                     </button>
                     {freqMounted && (
-                      <div className={`absolute left-0 right-0 mt-1.5 glass-dropdown rounded-xl py-1 z-50 ${
-                        freqAnimating ? "animate-dropdown" : "animate-dropdown-out"
-                      }`}>
+                      <div className={`absolute left-0 right-0 mt-1.5 glass-dropdown rounded-xl py-1 z-50 ${freqAnimating ? "animate-dropdown" : "animate-dropdown-out"
+                        }`}>
                         {FREQUENCY_OPTIONS.map(({ value, label }) => (
                           <button key={value} type="button"
-                            onClick={() => { setFrequency(value); setFreqOpen(false); setRepeatDays([]); setIntervalFrom(""); setIntervalTo(""); }}
-                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${
-                              frequency === value ? "text-primary font-medium" : "text-foreground"
-                            }`}>
+                            onClick={() => { setFrequency(value); setFreqOpen(false); setRepeatDays([]); setIntervalDays(7); }}
+                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${frequency === value ? "text-primary font-medium" : "text-foreground"
+                              }`}>
                             {label}
                           </button>
                         ))}
@@ -762,9 +825,8 @@ export default function HabitsView() {
                         const active = repeatDays.includes(idx);
                         return (
                           <button key={idx} type="button" onClick={() => toggleRepeatDay(idx)}
-                            className={`h-9 rounded-lg text-xs font-medium transition-all ${
-                              active ? "bg-primary text-white shadow-sm" : "bg-content2 text-default-400 hover:bg-content3 hover:text-foreground"
-                            }`}>
+                            className={`h-9 rounded-lg text-xs font-medium transition-all ${active ? "bg-primary text-white shadow-sm" : "bg-content2 text-default-400 hover:bg-content3 hover:text-foreground"
+                              }`}>
                             {day}
                           </button>
                         );
@@ -773,24 +835,24 @@ export default function HabitsView() {
                   </div>
                 )}
 
-                {/* Интервал */}
+                {/* Интервал — только числовое поле, НЕ datepicker */}
                 {frequency === "interval" && (
                   <div className="space-y-1.5 animate-modal-content">
-                    <label className="text-sm font-medium text-default-600">Период интервала</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <p className="text-xs text-default-400">С</p>
-                        <input type="date" value={intervalFrom}
-                          onChange={e => setIntervalFrom(e.target.value)}
-                          max={intervalTo || undefined} className="input-field" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs text-default-400">По</p>
-                        <input type="date" value={intervalTo}
-                          onChange={e => setIntervalTo(e.target.value)}
-                          min={intervalFrom || undefined} className="input-field" />
-                      </div>
+                    <label className="text-sm font-medium text-default-600">Интервал (дней)</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={intervalDays}
+                        onChange={e => setIntervalDays(Math.max(1, Number(e.target.value)))}
+                        className="input-field w-28"
+                      />
+                      <span className="text-sm text-default-400">дней</span>
                     </div>
+                    <p className="text-xs text-default-400">
+                      Напоминание каждые {intervalDays} {intervalDays === 1 ? "день" : intervalDays < 5 ? "дня" : "дней"}
+                    </p>
                   </div>
                 )}
 
@@ -800,8 +862,11 @@ export default function HabitsView() {
 
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-default-600">Дата начала</label>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                      className="input-field" />
+                    <GlassDatePicker
+                      value={startDate}
+                      onChange={setStartDate}
+                      max={endCondition === "by_date" ? endDate || undefined : undefined}
+                    />
                   </div>
 
                   <div className="space-y-1.5">
@@ -813,15 +878,13 @@ export default function HabitsView() {
                         <ChevronDown size={16} className={`text-default-400 transition-transform duration-300 flex-shrink-0 ${endCondOpen ? "rotate-180" : ""}`} />
                       </button>
                       {endCondMounted && (
-                        <div className={`absolute left-0 right-0 mt-1.5 glass-dropdown rounded-xl py-1 z-50 ${
-                          endCondAnimating ? "animate-dropdown" : "animate-dropdown-out"
-                        }`}>
+                        <div className={`absolute left-0 right-0 mt-1.5 glass-dropdown rounded-xl py-1 z-50 ${endCondAnimating ? "animate-dropdown" : "animate-dropdown-out"
+                          }`}>
                           {(["never", "by_date", "after_n"] as const).map(val => (
                             <button key={val} type="button"
                               onClick={() => { setEndCondition(val); setEndCondOpen(false); }}
-                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${
-                                endCondition === val ? "text-primary font-medium" : "text-foreground"
-                              }`}>
+                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${endCondition === val ? "text-primary font-medium" : "text-foreground"
+                                }`}>
                               {END_CONDITION_LABELS[val]}
                             </button>
                           ))}
@@ -830,9 +893,13 @@ export default function HabitsView() {
                     </div>
 
                     {endCondition === "by_date" && (
-                      <input type="date" value={endDate} min={startDate}
-                        onChange={e => setEndDate(e.target.value)}
-                        className="input-field mt-2 animate-modal-content" />
+                      <div className="mt-2 animate-modal-content">
+                        <GlassDatePicker
+                          value={endDate}
+                          onChange={setEndDate}
+                          min={startDate || undefined}
+                        />
+                      </div>
                     )}
                     {endCondition === "after_n" && (
                       <div className="flex items-center gap-3 mt-2 animate-modal-content">
@@ -859,15 +926,13 @@ export default function HabitsView() {
       {viewMounted && viewHabit && (
         <ModalPortal>
           <div
-            className={`fixed inset-0 z-[100] flex items-center justify-center p-4 modal-overlay ${
-              viewAnimating ? "animate-overlay-in" : "animate-overlay-out"
-            }`}
+            className={`fixed inset-0 z-[100] flex items-center justify-center p-4 modal-overlay ${viewAnimating ? "animate-overlay-in" : "animate-overlay-out"
+              }`}
             onClick={() => { setViewHabit(null); setIsEditing(false); }}
           >
             <div
-              className={`relative glass-modal rounded-2xl w-full max-w-sm p-6 border border-white/10 max-h-[90vh] overflow-y-auto ${
-                viewAnimating ? "animate-modal-content" : "animate-modal-out"
-              }`}
+              className={`relative glass-modal rounded-2xl w-full max-w-sm p-6 border border-white/10 max-h-[90vh] overflow-y-auto ${viewAnimating ? "animate-modal-content" : "animate-modal-out"
+                }`}
               onClick={e => e.stopPropagation()}
             >
               {/* Header */}
@@ -903,6 +968,7 @@ export default function HabitsView() {
                     <label className="text-sm font-medium text-default-600">Описание</label>
                     <input value={editData.description ?? ""}
                       onChange={e => setEditData(d => ({ ...d, description: e.target.value }))}
+                      placeholder="Краткое описание"
                       className="input-field" />
                   </div>
 
@@ -911,33 +977,32 @@ export default function HabitsView() {
                     <div className="flex gap-3">
                       {COLORS.map(c => (
                         <button key={c} type="button" onClick={() => setEditData(d => ({ ...d, color: c }))}
-                          className={`w-8 h-8 rounded-full transition-transform ${
-                            editData.color === c ? "scale-110 ring-2 ring-white/50" : "opacity-70 hover:opacity-100"
-                          }`} style={{ backgroundColor: c }} />
+                          className={`w-8 h-8 rounded-full transition-transform ${editData.color === c ? "scale-110 ring-2 ring-white/50" : "opacity-70 hover:opacity-100"
+                            }`} style={{ backgroundColor: c }} />
                       ))}
                     </div>
                   </div>
 
+                  {/* Повторение в edit — кастомный dropdown */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-default-600">Повторение</label>
                     <div ref={editFreqRef} className="relative">
                       <button type="button" onClick={() => setEditFreqOpen(v => !v)}
                         className="input-field flex items-center justify-between cursor-pointer text-left w-full">
                         <span>{FREQUENCY_OPTIONS.find(o => o.value === editData.frequency)?.label ?? "Ежедневно"}</span>
-                        <ChevronDown size={16} className={`text-default-400 transition-transform duration-300 ${
-                          editFreqOpen ? "rotate-180" : ""
-                        }`} />
+                        <ChevronDown size={16} className={`text-default-400 transition-transform duration-300 ${editFreqOpen ? "rotate-180" : ""}`} />
                       </button>
                       {editFreqMounted && (
-                        <div className={`absolute left-0 right-0 mt-1.5 glass-dropdown rounded-xl py-1 z-50 ${
-                          editFreqAnimating ? "animate-dropdown" : "animate-dropdown-out"
-                        }`}>
+                        <div className={`absolute left-0 right-0 mt-1.5 glass-dropdown rounded-xl py-1 z-50 ${editFreqAnimating ? "animate-dropdown" : "animate-dropdown-out"
+                          }`}>
                           {FREQUENCY_OPTIONS.map(({ value, label }) => (
                             <button key={value} type="button"
-                              onClick={() => { setEditData(d => ({ ...d, frequency: value })); setEditFreqOpen(false); }}
-                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${
-                                editData.frequency === value ? "text-primary font-medium" : "text-foreground"
-                              }`}>
+                              onClick={() => {
+                                setEditData(d => ({ ...d, frequency: value }));
+                                setEditFreqOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 transition-colors ${editData.frequency === value ? "text-primary font-medium" : "text-foreground"
+                                }`}>
                               {label}
                             </button>
                           ))}
@@ -948,16 +1013,20 @@ export default function HabitsView() {
 
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-default-600">Дата начала</label>
-                    <input type="date" value={editData.start_date ?? ""}
-                      onChange={e => setEditData(d => ({ ...d, start_date: e.target.value }))}
-                      className="input-field" />
+                    <GlassDatePicker
+                      value={editData.start_date ?? ""}
+                      onChange={v => setEditData(d => ({ ...d, start_date: v || null }))}
+                      max={editData.end_date || undefined}
+                    />
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-default-600">Дата окончания</label>
-                    <input type="date" value={editData.end_date ?? ""}
-                      onChange={e => setEditData(d => ({ ...d, end_date: e.target.value }))}
-                      className="input-field" />
+                    <GlassDatePicker
+                      value={editData.end_date ?? ""}
+                      onChange={v => setEditData(d => ({ ...d, end_date: v || null }))}
+                      min={editData.start_date || undefined}
+                    />
                   </div>
 
                   <div className="flex gap-3 pt-2">
@@ -1046,15 +1115,13 @@ export default function HabitsView() {
       {deleteMounted && displayDeleteHabit && (
         <ModalPortal>
           <div
-            className={`fixed inset-0 z-[100] flex items-center justify-center px-4 modal-overlay ${
-              deleteAnimating ? "animate-overlay-in" : "animate-overlay-out"
-            }`}
+            className={`fixed inset-0 z-[100] flex items-center justify-center px-4 modal-overlay ${deleteAnimating ? "animate-overlay-in" : "animate-overlay-out"
+              }`}
             onClick={() => setDeleteId(null)}
           >
             <div
-              className={`relative glass-modal rounded-2xl p-6 w-full max-w-sm space-y-4 ${
-                deleteAnimating ? "animate-modal-content" : "animate-modal-out"
-              }`}
+              className={`relative glass-modal rounded-2xl p-6 w-full max-w-sm space-y-4 ${deleteAnimating ? "animate-modal-content" : "animate-modal-out"
+                }`}
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between">
